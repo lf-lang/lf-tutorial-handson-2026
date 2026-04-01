@@ -1,0 +1,142 @@
+/**
+ * Step 4: Conservative Coordination with Chandy-Misra Null Messages
+ *
+ * GridManager now uses STA = forever: it will not advance logical time past t until it has received
+ * a message (real or null) from every connected upstream federate with timestamp >= t.
+ *
+ * GridServer wraps the operator interface and emits null messages (value = 0, meaning "no dispatch
+ * change") every null_message_period. This bounds the maximum wait in GridManager to approximately
+ * one null_message_period plus network latency.
+ *
+ * Trade-off: if a GridServer crashes, null messages stop, and both GridManagers block indefinitely.
+ * Strong consistency is preserved, but availability is unbounded in the presence of failures. See
+ * Step 5 for how to handle this.
+ */
+target C {
+  coordination: decentralized
+}
+
+preamble {=
+  #define MIN_SAFE_BALANCE (-200)
+=}
+
+// ------------------------------------------------------------
+// OperatorConsole: generates dispatch and curtailment commands.
+// Extracted from GridInterface for clarity.
+// ------------------------------------------------------------
+reactor OperatorConsole(node_name: string = "Node") {
+  output command: int
+
+  timer dispatch_timer(500 ms, 3 s)
+  timer curtail_timer(2 s, 3 s)
+
+  reaction(dispatch_timer) -> command {=
+    lf_print("%s: dispatching +100 MW", self->node_name);
+    lf_set(command, 100);
+  =}
+
+  reaction(curtail_timer) -> command {=
+    lf_print("%s: curtailing -80 MW", self->node_name);
+    lf_set(command, -80);
+  =}
+}
+
+// ------------------------------------------------------------
+// GridServer: wraps the operator console and adds null messages.
+//
+// A null message (value = 0) is sent every null_message_period
+// if no real command has arrived. This advances the logical
+// timeline of the remote GridManager, preventing indefinite blocking.
+//
+// null_message_period determines the maximum wait in GridManager:
+// max_wait ≈ null_message_period + network_latency
+// ------------------------------------------------------------
+reactor GridServer(node_name: string = "Node", null_message_period: time = 1 s) {
+  input balance_in: int  // balance feedback from local GridManager
+  output command_out: int  // real or null command, forwarded to GridManagers
+  output status_out: int  // balance displayed to operator
+
+  console = new OperatorConsole(node_name=node_name)
+
+  timer heartbeat(0, null_message_period)  // Null-message heartbeat timer: fires every null_message_period
+
+  // Forward balance to operator display
+  reaction(balance_in) -> status_out {=
+    lf_print("%s: grid balance = %d MW", self->node_name, balance_in->value);
+    lf_set(status_out, balance_in->value);
+  =}
+
+  // On each heartbeat: forward real command if present, else null message
+  reaction(console.command, heartbeat) -> command_out {=
+    if (console.command->is_present) {
+        lf_set(command_out, console.command->value);
+    } else {
+        // Null message: advances remote logical time, no grid effect
+        lf_set(command_out, 0);
+    }
+  =}
+}
+
+// ------------------------------------------------------------
+// GridManager: STA = forever means it will wait without bound
+// until it has received a message from every upstream federate
+// with timestamp >= t, before processing events at timestamp t.
+//
+// With null messages flowing in every null_message_period, the
+// actual wait is bounded to ~null_message_period + latency.
+// ------------------------------------------------------------
+reactor GridManager(STA: time = forever) {
+  input in1: int  // from local GridServer (real or null)
+  input in2: int  // from remote GridServer (real or null)
+  output out: int
+
+  state balance: int = 0
+
+  reaction(in1, in2) -> out {=
+    // in1 and in2 may be null (value=0) or real commands.
+    // Either way, handle them identically — null messages are
+    // just additions of 0 MW, which have no effect.
+    if (in1->is_present && in1->value != 0) {
+        if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
+            self->balance += in1->value;
+            lf_print("[ts=%lld] Applied local command %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in1->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] IMBALANCE EVENT: rejected local curtailment "
+                     "%d MW (balance %d MW)",
+                     lf_time_logical_elapsed(), in1->value, self->balance);
+        }
+    }
+    if (in2->is_present && in2->value != 0) {
+        if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
+            self->balance += in2->value;
+            lf_print("[ts=%lld] Applied remote command %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in2->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] IMBALANCE EVENT: rejected remote curtailment "
+                     "%d MW (balance %d MW)",
+                     lf_time_logical_elapsed(), in2->value, self->balance);
+        }
+    }
+    lf_set(out, self->balance);
+  =}
+}
+
+// ------------------------------------------------------------
+// Top-level federation: Chandy-Misra style coordination.
+// ------------------------------------------------------------
+federated reactor {
+  s1 = new GridServer(node_name="California", null_message_period = 1 s)
+  s2 = new GridServer(node_name="NewYork", null_message_period = 1 s)
+
+  gm1 = new GridManager(STA=forever)
+  gm2 = new GridManager(STA=forever)
+
+  s1.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
+  s2.command_out -> gm2.in2
+  s1.command_out -> gm2.in1  // California -> New York manager
+  s2.command_out -> gm1.in2  // New York   -> California manager
+
+  gm1.out -> s1.balance_in after 0  // Balance feedback to operator displays
+  gm2.out -> s2.balance_in after 0
+}

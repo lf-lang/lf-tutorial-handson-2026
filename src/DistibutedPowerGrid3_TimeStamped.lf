@@ -1,0 +1,120 @@
+/**
+ * Step 3: Distributed Grid Manager with Logical Timestamps
+ *
+ * The only change from Step 2 is that connections now use -> instead of ~>. This causes LF to carry
+ * timestamps on all messages and guarantees that both grid managers handle every command in the
+ * same logical time order.
+ *
+ * The GridManager has an STA (Safe To Advance) parameter. This is the amount of physical time the
+ * manager must wait after a timestamp t before it can safely process messages at that timestamp. It
+ * must be set to at least:
+ *
+ * STA >= clock_sync_error + network_latency + processing_overhead
+ *
+ * For cross-continental US nodes with NTP: STA ~ 100 ms is a reasonable start. For tighter
+ * guarantees, use PTP (~1 ms error) or GPS (~100 ns error).
+ */
+target C {
+  coordination: decentralized
+}
+
+preamble {=
+  #define MIN_SAFE_BALANCE (-200)
+=}
+
+// ------------------------------------------------------------
+// GridInterface: operator console. Unchanged from Step 2.
+// ------------------------------------------------------------
+reactor GridInterface(hostport: int = 8080, node_name: string = "Node") {
+  output command: int
+  input status: int
+
+  timer dispatch_timer(500 ms, 3 s)
+  timer curtail_timer(2 s, 3 s)
+
+  reaction(dispatch_timer) -> command {=
+    lf_print("%s: dispatching +100 MW", self->node_name);
+    lf_set(command, 100);
+  =}
+
+  reaction(curtail_timer) -> command {=
+    lf_print("%s: curtailing -80 MW", self->node_name);
+    lf_set(command, -80);
+  =}
+
+  reaction(status) {=
+    lf_print("%s balance: %d MW", self->node_name, status->value);
+  =}
+}
+
+// ------------------------------------------------------------
+// GridManager: same business logic as Step 2, but now processes
+// commands in logical timestamp order thanks to -> connections.
+//
+// STA (Safe To Advance): physical time to wait before processing
+// a message at logical time t. Must exceed clock sync error +
+// network latency.
+//
+// When two commands arrive with the same timestamp (simultaneous
+// events), in1 is always processed before in2. Since the wiring
+// maps California -> in1 and New York -> in2 at BOTH managers,
+// this is deterministic and consistent across the federation.
+// ------------------------------------------------------------
+reactor GridManager(STA: time = 100 ms) {
+  input in1: int  // local operator commands
+  input in2: int  // remote operator commands
+  output out: int
+
+  state balance: int = 0
+
+  reaction(in1, in2) -> out {=
+    if (in1->is_present) {
+        if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
+            self->balance += in1->value;
+            lf_print("[ts=%lld] Applied local command %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in1->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] IMBALANCE EVENT: rejected local curtailment "
+                     "%d MW (balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in1->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    if (in2->is_present) {
+        if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
+            self->balance += in2->value;
+            lf_print("[ts=%lld] Applied remote command %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in2->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] IMBALANCE EVENT: rejected remote curtailment "
+                     "%d MW (balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in2->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    lf_set(out, self->balance);
+  =}
+}
+
+// ------------------------------------------------------------
+// Top-level: logical connections (->) replace physical ones (~>).
+// The LF runtime now enforces timestamp-ordered delivery.
+// Both gm1 and gm2 will agree on the balance at every timestamp.
+// ------------------------------------------------------------
+federated reactor {
+  op1 = new GridInterface(hostport=8081, node_name="California")
+  op2 = new GridInterface(hostport=8082, node_name="NewYork")
+
+  // STA = 100 ms: safe for cross-continental links with NTP sync.
+  // Reduce STA to improve responsiveness; increase to tolerate higher latency.
+  gm1 = new GridManager(STA = 100 ms)
+  gm2 = new GridManager(STA = 100 ms)
+
+  op1.command -> gm1.in1  // Logical connections: timestamps are carried and ordering is enforced.
+  op2.command -> gm2.in2
+  op1.command -> gm2.in1  // California -> New York manager
+  op2.command -> gm1.in2  // New York   -> California manager
+
+  gm1.out -> op1.status
+  gm2.out -> op2.status
+}

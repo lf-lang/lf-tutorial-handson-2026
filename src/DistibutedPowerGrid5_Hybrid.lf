@@ -1,0 +1,200 @@
+/**
+ * Step 5: Hybrid Design — Fast-Path for Safe Commands
+ *
+ * Architecture:
+ * - GridServer: wraps operator console + null message heartbeat (as in Step 4)
+ * - GridManager (STA=forever): authoritative, strongly-consistent balance. Handles ALL commands
+ * including curtailments. Slow but correct.
+ * - QuickDispatch (STA=30ms): handles dispatch-UP commands only on a fast path. Responds in ~30ms
+ * regardless of network conditions. Receives the authoritative balance as a secondary input for
+ * self-correction.
+ *
+ * This design guarantees:
+ * - Dispatch-up commands: acknowledged in ≤ 30ms (STA bound)
+ * - Curtailment commands: processed only after full coordination (STA=forever)
+ * - Eventual consistency: all copies of balance ultimately agree
+ * - Bounded unavailability for dispatches even if remote node fails
+ */
+target C {
+  coordination: decentralized
+}
+
+preamble {=
+  #define MIN_SAFE_BALANCE (-200)
+=}
+
+// ------------------------------------------------------------
+// OperatorConsole: generates test commands.
+// ------------------------------------------------------------
+reactor OperatorConsole(node_name: string = "Node") {
+  output command: int
+
+  timer dispatch_timer(500 ms, 3 s)
+  timer curtail_timer(2 s, 3 s)
+  timer large_curtail(10 s, 30 s)  // periodic high-risk curtailment
+
+  reaction(dispatch_timer) -> command {=
+    lf_print("%s: dispatching +100 MW (fast path)", self->node_name);
+    lf_set(command, 100);
+  =}
+
+  reaction(curtail_timer) -> command {=
+    lf_print("%s: curtailing -50 MW (slow path)", self->node_name);
+    lf_set(command, -50);
+  =}
+
+  reaction(large_curtail) -> command {=
+    lf_print("%s: large curtailment -150 MW (slow path, high risk)", self->node_name);
+    lf_set(command, -150);
+  =}
+}
+
+// ------------------------------------------------------------
+// GridServer: adds null-message heartbeat. Same as Step 4.
+// ------------------------------------------------------------
+reactor GridServer(node_name: string = "Node", null_message_period: time = 1 s) {
+  input balance_in: int
+  output command_out: int
+  output status_out: int
+
+  console = new OperatorConsole(node_name=node_name)
+  timer heartbeat(0, null_message_period)
+
+  reaction(balance_in) -> status_out {=
+    lf_set(status_out, balance_in->value);
+  =}
+
+  reaction(console.command, heartbeat) -> command_out {=
+    if (console.command->is_present) {
+        lf_set(command_out, console.command->value);
+    } else {
+        lf_set(command_out, 0);  // null message heartbeat
+    }
+  =}
+}
+
+// ------------------------------------------------------------
+// GridManager: authoritative balance. STA = forever.
+// Handles ALL commands. Blocks until remote null messages confirm
+// no earlier messages are coming.
+// ------------------------------------------------------------
+reactor GridManager(STA: time = forever) {
+  input in1: int
+  input in2: int
+  output out: int
+
+  state balance: int = 0
+
+  reaction(in1, in2) -> out {=
+    if (in1->is_present && in1->value != 0) {
+        if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
+            self->balance += in1->value;
+            lf_print("[ts=%lld] GridManager: applied local %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in1->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] GridManager: IMBALANCE EVENT — rejected %d MW "
+                     "(balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in1->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    if (in2->is_present && in2->value != 0) {
+        if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
+            self->balance += in2->value;
+            lf_print("[ts=%lld] GridManager: applied remote %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in2->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] GridManager: IMBALANCE EVENT — rejected %d MW "
+                     "(balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in2->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    lf_set(out, self->balance);
+  =}
+}
+
+// ------------------------------------------------------------
+// QuickDispatch: fast-path handler for dispatch-UP commands only.
+//
+// STA = 30 ms: will process a command at logical time t once
+// physical clock T >= t + 30 ms, without waiting for remote node.
+//
+// STAA = 0: if true_balance hasn't arrived by t + STA + STAA = t + 30ms,
+// assume it's absent and proceed. If it arrives late, fault handler runs.
+//
+// The fault handler updates the local balance estimate but treats
+// out-of-order dispatches as a warning (benign for dispatch-up).
+// ------------------------------------------------------------
+reactor QuickDispatch(STA: time = 30 ms) {
+  input dispatch: int      // from local GridServer (commands only)
+  input true_balance: int  // from local GridManager (authoritative)
+  output ack: int          // fast acknowledgement to operator
+
+  state balance: int = 0
+
+  // Normal path: true_balance arrives before or with dispatch
+  reaction(true_balance, dispatch) -> ack {=
+    if (true_balance->is_present) {
+        self->balance = true_balance->value;
+    }
+    if (dispatch->is_present && dispatch->value > 0) {
+        // Only handle dispatch-up on fast path
+        self->balance += dispatch->value;
+        lf_set(ack, self->balance);
+        lf_print("[ts=%lld] QuickDispatch: fast ack +%d MW -> est. balance %d MW",
+                 lf_time_logical_elapsed(), dispatch->value, self->balance);
+    }
+    // Negative commands (curtailments) are silently ignored here.
+    // They are handled by GridManager on the slow, consistent path.
+  =} STAA(0) {=
+    // Fault path: true_balance arrived LATE (out of timestamp order).
+    // Correct our estimate and log the anomaly.
+    if (true_balance->is_present) {
+        lf_print("[ts=%lld] QuickDispatch: late true_balance arrived (%d MW), "
+                 "correcting estimate from %d MW.",
+                 lf_time_logical_elapsed(), true_balance->value, self->balance);
+        self->balance = true_balance->value;
+    }
+    if (dispatch->is_present && dispatch->value > 0) {
+        // A fast dispatch may have used a stale estimate.
+        // For dispatch-up this is generally safe; log for audit trail.
+        lf_print("[ts=%lld] QuickDispatch: WARNING — dispatch of +%d MW "
+                 "processed with stale balance estimate. "
+                 "Operator acknowledged %d MW (may differ from true balance).",
+                 lf_time_logical_elapsed(), dispatch->value, self->balance);
+    }
+  =}
+}
+
+// ------------------------------------------------------------
+// Top-level: hybrid federation.
+// Fast path: s1.command_out -> q1.dispatch (dispatch-up only)
+// Slow path: s1.command_out -> gm1.in1 (all commands)
+// ------------------------------------------------------------
+federated reactor {
+  s1 = new GridServer(node_name="California", null_message_period = 1 s)
+  s2 = new GridServer(node_name="NewYork", null_message_period = 1 s)
+
+  gm1 = new GridManager(STA=forever)
+  gm2 = new GridManager(STA=forever)
+
+  q1 = new QuickDispatch(STA = 30 ms)  // California fast-path handler
+  q2 = new QuickDispatch(STA = 30 ms)  // New York fast-path handler
+
+  s1.command_out -> gm1.in1  // Slow path: all commands to both grid managers (cross-connected)
+  s2.command_out -> gm2.in2
+  s1.command_out -> gm2.in1
+  s2.command_out -> gm1.in2
+
+  gm1.out -> s1.balance_in after 0  // Balance feedback to servers (operator display via slow path)
+  gm2.out -> s2.balance_in after 0
+
+  s1.command_out -> q1.dispatch after 0  // Fast path: local commands -> local QuickDispatch
+  s2.command_out -> q2.dispatch after 0
+
+  gm1.out -> q1.true_balance after 0  // QuickDispatch receives authoritative balance from local GridManager
+  // Fast acknowledgement routed back to operator display
+  // (would go to a separate "estimated balance" field in a real UI)
+  gm2.out -> q2.true_balance after 0
+}

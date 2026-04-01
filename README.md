@@ -63,6 +63,24 @@ This is analogous to the banking example in the paper: instead of deposits/withd
 
 ---
 
+## Use This Repository as a Template
+
+This repository is a **GitHub template**. You can create your own copy to work in (so commits and experiments stay in your own repo without forking the tutorial).
+
+1. Open the template repository on GitHub (for example `lf-lang/lf-tutorial-handson-2026`).
+2. Click **Use this template**, then choose **Create a new repository** (or **Open in a codespace** if you prefer a cloud dev environment).
+
+   ![Use this template: Create a new repository or Open in a codespace](assets/github-use-template.png)
+
+3. On the **Create a new repository** page, pick the **Owner** and **Repository name**, add an optional **Description**, choose **visibility** (Public or Private), then click **Create repository**.  
+   By default only the default branch is copied; turn on **Include all branches** only if you need every branch from the template.
+
+   ![Create a new repository from the template](assets/github-create-repository.png)
+
+After creation, clone **your** new repository locally and follow [Running the Code](#running-the-code).
+
+---
+
 ## Running the Code
 
 Each `.lf` file in the `src/` directory can be compiled and run with:

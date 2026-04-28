@@ -6,7 +6,7 @@
  * Because the operation is commutative (addition), both managers will eventually agree on the same
  * balance regardless of message ordering — eventual consistency via CRDT properties.
  *
- * This is the "safe" design: no business logic that enforces limits. See Step 2 for what happens
+ * This is the "baseline" design: no business logic that enforces limits. See Step 2 for what happens
  * when we add real-world constraints.
  */
 target C {

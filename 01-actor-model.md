@@ -112,7 +112,7 @@ That's what we explore next.
 
 2. What would happen if TCP delivery were *not* guaranteed? How would the ACID 2.0 / CRDT properties need to change?
 
-3. Why does the CAL theorem (Consistency as Logical Monotonicity) apply here? What is the partial order?
+3. Why does the CAL theorem (Consistency vs. Availability under Latency constraints) apply here? What is the partial order? [[More Reading]](https://arxiv.org/abs/2301.08906)
 
 ---
 

@@ -1,4 +1,4 @@
-# Step 2: When Operations Are Non-Commutative — The Consistency Problem
+# Step 2: When Operations Are Non-Commutative: The Consistency Problem
 
 ## Adding Real Business Logic
 
@@ -59,17 +59,17 @@ This new operation is **not commutative**. The result of applying two commands d
 - California: curtail −80 MW (would bring balance to −230 MW, below threshold)
 - New York: dispatch +100 MW (would bring balance to −50 MW)
 
-**Scenario A — California manager sees curtail first:**
+**Scenario A: California manager sees curtail first:**
 1. California curtail (−80): `−150 + (−80) = −230`. Below threshold → **rejected**.
 2. New York dispatch (+100): `−150 + 100 = −50`. Applied.
 3. Final balance at `gm1`: **−50 MW**. No imbalance event.
 
-**Scenario B — California manager sees dispatch first:**
+**Scenario B: California manager sees dispatch first:**
 1. New York dispatch (+100): `−150 + 100 = −50`. Applied.
 2. California curtail (−80): `−50 + (−80) = −130`. Above threshold → **applied**.
 3. Final balance at `gm1`: **−130 MW**. No imbalance event.
 
-Since `gm1` and `gm2` receive these messages over physical (unordered) connections, they may each experience a different scenario. **They permanently disagree on the balance** — and worse, they may disagree on whether an imbalance event occurred.
+Since `gm1` and `gm2` receive these messages over physical (unordered) connections, they may each experience a different scenario. **They permanently disagree on the balance**, and worse, they may disagree on whether an imbalance event occurred.
 
 This is the fundamental consistency problem in distributed systems.
 
@@ -90,14 +90,14 @@ New York node:                   dispatch +100 ───────────
                                                                                      ↓
                                                                            gm2 final: -50 MW ✓ no event
 
-But gm1 (-130) ≠ gm2 (-50) — INCONSISTENT STATE!
+But gm1 (-130) ≠ gm2 (-50): INCONSISTENT STATE!
 ```
 
 In a real grid, this inconsistency means the two control centers have **contradictory views of grid health**. Automated systems making decisions based on these views could take opposing corrective actions, worsening the situation.
 
 ---
 
-## Fixing It — The Options
+## Fixing It: The Options
 
 We'll explore three approaches to fix the inconsistency issue:
 
@@ -121,4 +121,4 @@ The single-node approach defeats the purpose of having two control centers. So w
 
 ---
 
-**Next:** [Step 3 — Adding Logical Timestamps](03-timestamps.md)
+**Next:** [Step 3: Adding Logical Timestamps](03-timestamps.md)

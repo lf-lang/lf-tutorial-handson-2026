@@ -1,19 +1,19 @@
-# Step 3: Logical Timestamps — Ordering Events Across the Grid
+# Step 3: Logical Timestamps: Ordering Events Across the Grid
 
 ## The Core Insight
 
-When a California operator curtails generation at the same physical instant that a New York operator dispatches generation, there is no objective "ground truth" about which happened first. Special relativity tells us the ordering can depend on the observer — and for events separated by thousands of kilometers, the difference in light travel time is measurable.
+When a California operator curtails generation at the same physical instant that a New York operator dispatches generation, there is no objective "ground truth" about which happened first. Special relativity tells us the ordering can depend on the observer, and for events separated by thousands of kilometers, the difference in light travel time is measurable.
 
-Fortunately, we don't need ground truth. We just need **both control nodes to agree on the same ordering** — and for that ordering to look reasonable to human operators. Logical timestamps achieve exactly this.
+Fortunately, we don't need ground truth. We need **both control nodes to agree on the same ordering**, and for that ordering to look reasonable to human operators. Logical timestamps achieve exactly this.
 
 ---
 
 ## What Is Logical Time?
 
-Lingua Franca assigns a **timestamp** to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. Clock synchronization protocols like NTP, PTP, or GPS ensure that these clocks are close to each other — within a bounded error `ε`.
+Lingua Franca assigns a **timestamp** to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. Clock synchronization protocols like NTP, PTP, or GPS keep these clocks close to each other, within a bounded error `ε`.
 
 A timestamp becomes a **logical time** because:
-- When Node A sends a message with timestamp `t`, Node B processes it at logical time `t` — even if Node B's physical clock has already advanced past `t`.
+- When Node A sends a message with timestamp `t`, Node B processes it at logical time `t`, even if Node B's physical clock has already advanced past `t`.
 - Logical time is a shared reference frame that both nodes agree on, independent of physical clock drift.
 
 ---
@@ -38,7 +38,7 @@ op1.command -> gm1.in1
 op1.command -> gm2.in1
 ```
 
-This small change has a profound effect: LF now **guarantees** that both `gm1` and `gm2` handle every pair of commands in the same logical time order.
+This small change has a profound effect: LF now gives both `gm1` and `gm2` the same logical timestamps and a deterministic rule for processing them, provided the coordination assumptions are met.
 
 ---
 
@@ -52,7 +52,7 @@ See [`src/DistibutedPowerGrid3_TimeStamped.lf`](src/DistibutedPowerGrid3_TimeSta
 Key differences from Step 2:
 1. Connections use `->` instead of `~>`
 2. `GridManager` has a `maxwait` attribute
-3. No other changes to the reactor logic — timestamp ordering is handled by the LF runtime
+3. No other changes to the reactor logic; timestamp ordering is handled by the LF runtime
 
 ---
 
@@ -73,7 +73,7 @@ reaction(in1, in2) -> out {=
 =}
 ```
 
-Because the connection wiring is symmetric (California always feeds `in1`, New York always feeds `in2` at both managers), both managers give priority to the California operator at simultaneous timestamps. This is a deterministic policy — not the most fair one, but a consistent one.
+Because the connection wiring is symmetric (California always feeds `in1`, New York always feeds `in2` at both managers), both managers give priority to the California operator at simultaneous timestamps. This is a deterministic policy. It may not be the fairest policy, but it is consistent.
 
 ---
 
@@ -151,11 +151,11 @@ If it is OK for these reports to be made late, then we can annotate the reaction
 
 ## The CAL Theorem
 
-The waiting introduced by timestamps is not a bug — it is **fundamental**. The **CAL theorem** ([Lee et al., 2023](https://doi.org/10.1145/3609119)) states:
+The waiting introduced by timestamps is not a bug; it is **fundamental**. The **CAL theorem** ([Lee et al., 2023](https://doi.org/10.1145/3609119)) states:
 
 > It is impossible to achieve consistency without paying a price in **availability**, where the price is proportional to the latencies in the system.
 
-"Availability" here means: how long must an operator wait before their dispatch command takes effect? The longer the `maxwait`, the more consistent the system — and the longer operators wait. We'll return to this in Step 6.
+"Availability" here means: how long must an operator wait before their dispatch command takes effect? A larger `maxwait` can tolerate larger apparent latency, but operators may wait longer. We'll return to this in Step 6.
 
 ---
 
@@ -169,4 +169,4 @@ The waiting introduced by timestamps is not a bug — it is **fundamental**. The
 
 ---
 
-**Next:** [Step 4 — Conservative Coordination with Null Messages](04-conservative.md)
+**Next:** [Step 4: Conservative Coordination with Null Messages](04-conservative.md)

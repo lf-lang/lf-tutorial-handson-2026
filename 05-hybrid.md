@@ -1,15 +1,15 @@
-# Step 5: Hybrid Design — Fast-Path for Safe Commands
+# Step 5: Hybrid Design: Fast-Path for Safe Commands
 
 ## Motivation: Not All Commands Are Equal
 
-In Step 4, every dispatch command — whether it dispatches 10 MW or curtails 500 MW — waits up to ~1 second for null messages before being processed. For a power grid, that latency may be unacceptable for routine operations, while being entirely appropriate for high-risk commands.
+In Step 4, every dispatch command, whether it dispatches 10 MW or curtails 500 MW, waits up to ~1 second for null messages before being processed. For a power grid, that latency may be unacceptable for routine operations, while being entirely appropriate for high-risk commands.
 
 Consider the difference:
 
 | Command | Risk | Desired Response |
 |---------|------|-----------------|
-| Dispatch +100 MW (generation surplus) | Low — adding generation cannot cause imbalance | Fast (< 30 ms) |
-| Curtail −200 MW (dangerous near threshold) | High — could cause cascading failure | Slow but consistent (wait for full coordination) |
+| Dispatch +100 MW (generation surplus) | Low: adding generation cannot cause imbalance | Fast (< 30 ms) |
+| Curtail −200 MW (dangerous near threshold) | High: could cause cascading failure | Slow but consistent (wait for full coordination) |
 
 A **hybrid design** lets us offer both: a fast path for safe commands, and a slow-but-consistent path for risky ones.
 
@@ -19,7 +19,7 @@ A **hybrid design** lets us offer both: a fast path for safe commands, and a slo
 
 We add a third reactor to the federation: `QuickDispatch`. This reactor runs with a *finite* maxwait (say, 30 ms) and handles **only dispatch-up commands** (positive values). It responds quickly to operators, without waiting for the remote node.
 
-The `GridManager` (from Step 4, with `maxwait = forever`) continues to maintain the **authoritative balance** — updated by all commands including curtailments. `QuickDispatch` receives the authoritative balance as a secondary input, which it uses to double-check its fast-path decisions.
+The `GridManager` (from Step 4, with `maxwait = forever`) continues to maintain the **authoritative balance**, updated by all commands including curtailments. `QuickDispatch` receives the authoritative balance as a secondary input, which it uses to double-check its fast-path decisions.
 
 
 And here is what our system looks like:
@@ -63,7 +63,7 @@ reactor QuickDispatch {
     if (dispatch->is_present && dispatch->value > 0) {
         // A fast dispatch may have used a stale estimate.
         // For dispatch-up this is generally safe; log for audit trail.
-        lf_print("[ts=%lld] QuickDispatch: WARNING — dispatch of +%d MW "
+        lf_print("[ts=%lld] QuickDispatch: WARNING: dispatch of +%d MW "
                  "processed with stale balance estimate. "
                  "Operator acknowledged %d MW (may differ from true balance).",
                  lf_time_logical_elapsed(), dispatch->value, self->balance);
@@ -86,7 +86,7 @@ This is a **business decision embedded in the architecture**, not just a technic
 
 > Accept some extra latency for curtailments in exchange for preventing cascading failures.
 
-Many real-world variations are possible — for example, small curtailments (< 20 MW) could also use the fast path, while large ones use the slow path.
+Many real-world variations are possible. For example, small curtailments (< 20 MW) could also use the fast path, while large ones use the slow path.
 
 ---
 
@@ -106,4 +106,4 @@ See [`src/DistibutedPowerGrid5_Hybrid.lf`](src/DistibutedPowerGrid5_Hybrid.lf).
 
 ---
 
-**Next:** [Step 6 — The CAL Theorem: Fundamental Limits](06-cal-theorem.md)
+**Next:** [Step 6: The CAL Theorem: Fundamental Limits](06-cal-theorem.md)

@@ -29,7 +29,7 @@ The squiggly arrows (`~>`) are **physical connections** in Lingua Franca: they u
 
 ## The Code
 
-See [`src/DistibutedPowerGrid1_Actor.lf`](src/DistibutedPowerGrid1_Actor.lf).
+See [`src/Step1_Actor.lf`](src/Step1_Actor.lf).
 
 The core reactor is `SimpleGridManager`:
 

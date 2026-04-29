@@ -44,7 +44,7 @@ This small change has a profound effect: LF now gives both `gm1` and `gm2` the s
 
 ## Code
 
-See [`src/DistibutedPowerGrid3_TimeStamped.lf`](src/DistibutedPowerGrid3_TimeStamped.lf). And here is what our system looks like:
+See [`src/Step3_Timestamps.lf`](src/Step3_Timestamps.lf). And here is what our system looks like:
 
 ![DistributedPowerGrid3 TimeStamped](fig/DistibutedPowerGrid3_TimeStamped.svg)
 

@@ -92,7 +92,7 @@ Many real-world variations are possible. For example, small curtailments (< 20 M
 
 ## Code
 
-See [`src/DistibutedPowerGrid5_Hybrid.lf`](src/DistibutedPowerGrid5_Hybrid.lf).
+See [`src/Step5_Hybrid.lf`](src/Step5_Hybrid.lf).
 
 ---
 

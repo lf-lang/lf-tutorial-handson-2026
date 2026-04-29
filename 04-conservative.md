@@ -98,7 +98,7 @@ This is the CAL theorem in action: **strong consistency costs availability when 
 
 ## Code
 
-See [`src/DistibutedPowerGrid4_ChandyMisra.lf`](src/DistibutedPowerGrid4_ChandyMisra.lf). Here is what our system looks like:
+See [`src/Step4_Conservative.lf`](src/Step4_Conservative.lf). Here is what our system looks like:
 
 ![DistibutedPowerGrid4 Chandy & Misra](fig/DistibutedPowerGrid4_ChandyMisra.svg)
 

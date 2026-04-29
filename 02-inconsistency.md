@@ -10,7 +10,7 @@ Real grid operators enforce **safety constraints**. A typical rule:
 >
 > If a curtailment would push the balance below the threshold, reject it and log an **imbalance event** (which triggers automated protective relays in a real system).
 
-Let's say our minimum safe threshold is **−200 MW**. Here is the updated reactor (See [`src/DistibutedPowerGrid2_Inconsistency.lf`](src/DistibutedPowerGrid2_Inconsistency.lf)).
+Let's say our minimum safe threshold is **−200 MW**. Here is the updated reactor (See [`src/Step2_Inconsistency.lf`](src/Step2_Inconsistency.lf)).
 
 
 ```lf

@@ -8,7 +8,7 @@ Through Steps 1–5, we have navigated a series of tradeoffs. Each improvement i
 
 ## The CAL Theorem
 
-**Lee et al. (2023)** proved the following result for distributed cyber-physical systems:
+[**Lee et al. (2023)**](https://doi.org/10.1145/3609119) proved the following result for distributed cyber-physical systems:
 
 > **CAL Theorem:** It is impossible to achieve consistency without paying a price in availability. The minimum price is proportional to the latencies in the system: network communication latency, computation overhead, and clock synchronization error.
 
@@ -33,18 +33,18 @@ Here is a map of the designs from this tutorial against the consistency-availabi
 ```
 CONSISTENCY
     ▲
-    │  Step 4 (Chandy-Misra, STA=∞)
+    │  Step 4 (Chandy-Misra, maxwait=forever)
     │    Strong consistency
     │    Availability: unbounded wait on failure
     │
-    │  Step 3 (Timestamps, finite STA)
-    │    Strong consistency when STA ≥ latency
-    │    Availability: bounded wait (= STA)
-    │    Risk: fault if STA < actual latency
+    │  Step 3 (Timestamps, finite maxwait)
+    │    Strong consistency when maxwait ≥ latency
+    │    Availability: bounded wait (<= maxwait)
+    │    Risk: fault is possible if maxwait < actual latency
     │
     │  Step 5 (Hybrid)
-    │    Strong consistency for curtailments (STA=∞)
-    │    Bounded availability for dispatches (STA=30ms)
+    │    Strong consistency for curtailments (maxwait=forever)
+    │    Bounded availability for dispatches (maxwait=30ms)
     │    Fault handler handles occasional stale estimates
     │
     │  Step 2 (Non-commutative, no coordination)
@@ -70,14 +70,14 @@ Eventual consistency is the minimum acceptable requirement for our grid applicat
 
 ## Bounding Risk with Fault Handlers
 
-In Step 5, we saw how fault handlers (`STAA` clauses) allow a system to proceed optimistically — processing commands with a potentially stale estimate — while detecting and recovering from ordering violations after the fact.
+In Step 5, we saw how fault handlers (tardy clauses) allow a system to proceed optimistically — processing commands with a potentially stale estimate — while detecting and recovering from ordering violations after the fact.
 
 This is the practical engineering answer to the CAL theorem:
 
-1. **Choose a finite STA** that matches your network's typical latency (e.g., 30–100 ms).
-2. **Write fault handlers** for the cases where actual latency exceeds STA.
+1. **Choose a finite maxwait** that matches your network's typical latency (e.g., 30–100 ms).
+2. **Write fault handlers** for the cases where actual latency exceeds maxwait and an earlier event has been handled.
 3. **Tune the fault handlers** to implement business-logic recovery: log a warning, correct the estimate, alert operators, or take the fast path offline.
-4. **Monitor the fault rate** over time. If faults are rare (say, < 1 per day), your STA is probably well-calibrated. If faults are frequent, increase STA or improve your network.
+4. **Monitor the fault rate** over time. If faults are rare (say, < 1 per day), your maxwait is probably well-calibrated. If faults are frequent, increase maxwait or improve your network.
 
 This gives you **bounded unavailability with manageable risk** — the practical goal that the original paper describes.
 
@@ -87,9 +87,9 @@ This gives you **bounded unavailability with manageable risk** — the practical
 
 This tutorial focused on the core consistency mechanisms. The paper also discusses:
 
-- **Zero-delay cycles**: federates that send a message at timestamp `t` and expect a reply at the same `t`. These require special null-message protocols to avoid deadlock (Section 4 of the paper).
+- **Zero-delay cycles**: federates that send a message at timestamp `t` and expect a reply at the same `t`. These require special an additional mechanism called `absent_after` to avoid deadlock (Section 4 of the paper).
 - **After delays** (`a.out -> b.in after 10 ms`): a way to relax consistency by a controlled logical time offset, improving availability without sacrificing eventual consistency.
-- **Watchdogs and deadlines**: LF mechanisms for triggering fault responses when a federate blocks too long (related to `STA = forever` scenarios).
+- **Watchdogs and deadlines**: LF mechanisms for triggering fault responses when a federate blocks too long (related to `maxwait = forever` scenarios).
 
 ---
 
@@ -99,15 +99,15 @@ This tutorial focused on the core consistency mechanisms. The paper also discuss
 |------|--------|-------------|--------------|---------------|
 | 1 | Commutative actor | Eventual | Maximum | ACID 2.0 / CRDT |
 | 2 | Non-commutative actor | None | Maximum | (broken) |
-| 3 | Timestamped, finite STA | Strong (if STA ≥ latency) | Bounded (= STA) | Logical timestamps |
-| 4 | Chandy-Misra, STA=∞ | Strong (always) | Unbounded on failure | Null messages |
-| 5 | Hybrid fast/slow path | Strong for curtailments; eventual for dispatches | Bounded for dispatches | STAA fault handlers |
+| 3 | Timestamped, finite maxwait | Strong (if maxwait ≥ latency) | Bounded (<= maxwait) | Logical timestamps |
+| 4 | Chandy-Misra, maxwait=forever | Strong (always) | Unbounded on failure | Null messages |
+| 5 | Hybrid fast/slow path | Strong for curtailments; eventual for dispatches | Bounded for dispatches | tardy fault handlers |
 
 ---
 
 ## Further Reading
 
-- **Lee et al. (2023)**, "Consistency vs. Availability in Distributed Cyber-Physical Systems," *ACM TECS* 22(5s). The paper this tutorial is based on.
+- **Lee et al. (2023)**, "[Consistency vs. Availability in Distributed Cyber-Physical Systems](https://doi.org/10.1145/3609119)," *ACM TECS* 22(5s). The paper this tutorial is based on.
 - **Lingua Franca documentation**: [lf-lang.org/docs](https://lf-lang.org/docs) — especially the federated execution and decentralized coordination sections.
 - **Brewer (2000)**, CAP theorem — the original impossibility result for distributed databases.
 - **Shapiro et al. (2011)**, Conflict-Free Replicated Data Types — the CRDT framework that makes Step 1 work.
@@ -119,7 +119,7 @@ This tutorial focused on the core consistency mechanisms. The paper also discuss
 
 1. **Full scenario trace**: Starting from balance = −100 MW at both nodes, trace the complete execution of Step 5's hybrid design through: (a) California dispatches +200 MW, (b) New York curtails −150 MW (simultaneous), (c) California curtails −80 MW (2 seconds later). Which commands use the fast path? What does each GridManager report after each event?
 
-2. **STA calibration**: You deploy the Step 3 design between London and Tokyo (network latency ~250 ms, NTP error ~50 ms). What STA should you choose? What is the resulting unavailability (operator wait time) for curtailment commands?
+2. **maxwait calibration**: You deploy the Step 3 design between London and Tokyo (network latency ~250 ms, NTP error ~50 ms). What maxwait should you choose? What is the resulting unavailability (operator wait time) for curtailment commands?
 
 3. **Quorum design**: In the paper, Lee suggests using a quorum of nodes rather than unanimous agreement for determining the "true balance." How would you modify Step 5's `GridManager` to require agreement from 2 out of 3 nodes instead of 2 out of 2? What does the fault handler do when a node disagrees with the quorum?
 

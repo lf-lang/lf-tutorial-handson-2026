@@ -18,7 +18,7 @@ target C {
 // In a real system this would be a SCADA terminal or EMS display.
 // Positive integers = dispatch up (MW); negative = curtail (MW).
 // ------------------------------------------------------------
-reactor GridInterface(hostport: int = 8080) {
+reactor GridInterface(id: int = 0) {
   output command: int  // operator issues a dispatch command
   input status: int  // current grid balance, displayed to operator
 
@@ -38,7 +38,7 @@ reactor GridInterface(hostport: int = 8080) {
   =}
 
   reaction(status) {=
-    lf_print("Node %d balance: %d MW", self->hostport, status->value);
+    lf_print("Node %d balance: %d MW", self->id, status->value);
   =}
 }
 
@@ -76,8 +76,8 @@ reactor SimpleGridManager {
 // Physical connections (~>) carry no timestamp coordination.
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(hostport=8081)
-  op2 = new GridInterface(hostport=8082)
+  op1 = new GridInterface(id=1)
+  op2 = new GridInterface(id=2)
   gm1 = new SimpleGridManager()
   gm2 = new SimpleGridManager()
 

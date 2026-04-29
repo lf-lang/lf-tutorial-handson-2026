@@ -51,7 +51,7 @@ See [`src/DistibutedPowerGrid3_TimeStamped.lf`](src/DistibutedPowerGrid3_TimeSta
 
 Key differences from Step 2:
 1. Connections use `->` instead of `~>`
-2. `GridManager` has an `STA` parameter
+2. `GridManager` has a `maxwait` attribute
 3. No other changes to the reactor logic — timestamp ordering is handled by the LF runtime
 
 ---
@@ -80,40 +80,90 @@ Because the connection wiring is symmetric (California always feeds `in1`, New Y
 ## The Cost: Waiting
 
 To process a message at timestamp `t`, the grid manager must be sure it has received **all** messages with timestamp ≤ `t`. Otherwise, a late-arriving message (from the other node) could violate timestamp order.
+Such a late-arriving message is said to be **tardy**.
 
-This creates an unavoidable wait. The LF **decentralized coordinator** manages this via the **STA (Safe To Advance)** parameter:
+This creates an unavoidable wait. The LF **decentralized coordinator** manages this via the **maxwait** attribute:
 
 ```lf
-reactor GridManager(STA: time = 100 ms) {
-    // ...
-}
+  @maxwait(100 ms)
+  gm1 = new GridManager()
 ```
 
-A grid manager with `STA = 100 ms` waits until its local physical clock reads `T ≥ t + 100 ms` before processing a message at logical time `t`. This ensures that any message from the remote node with timestamp less than `t` has had at least 100 ms to arrive.
+A grid manager with `maxwait = 100 ms` advances to a logical time `t` when either:
+1. It has received inputs with timestamps `t` or more on both inputs, or
+2. Its local physical clock reads `T ≥ t + 100 ms`.
+
+This ensures that any message from the remote node with timestamp less than `t` has had at least 100 ms to arrive.
 
 This is correct as long as:
 
-> **clock sync error + network latency ≤ STA**
+> **clock sync error + network latency ≤ maxwait**
 
-For two nodes in California and New York (cross-continental latency ~60–80 ms), an STA of 100 ms provides a modest safety margin with NTP synchronization (~10–50 ms error). Google Spanner achieves tighter bounds using GPS and dedicated fiber.
+For two nodes in California and New York (cross-continental latency ~60–80 ms), a `maxwait` of 100 ms provides a modest safety margin with NTP synchronization (~10–50 ms error). Google Spanner achieves tighter bounds using GPS, the precision time protocol (PTP), and dedicated fiber trunks.
 
 ---
 
-## The CAL Theorem Preview
+## Handling Faults
 
-The waiting introduced by timestamps is not a bug — it is **fundamental**. The **CAL theorem** (Lee et al., 2023) states:
+Tardy events, if not handled, result in messages like this:
+
+```
+Fed 1 (op2_main): ERROR: STP violation occurred in a trigger to reaction 3, and there is no handler.
+**** Invoking reaction at the wrong tag!
+```
+
+Tardy events may be handled with a **tardy handler**.
+For example, we can add the following to the `GridManager` reaction:
+
+```lf
+  reaction(in1, in2) -> out {=
+    ...
+  =} tardy {=
+    tag_t intended_tag;
+    if (in1->is_present) {
+      intended_tag = in1->intended_tag;
+    } else {
+      intended_tag = in2->intended_tag;
+    }
+    lf_print_warning("[ts=%lld] Tardy message with intended timestamp %lld received at physical time %lld",
+        lf_time_logical_elapsed(), intended_tag.time - lf_time_start(), lf_time_physical_elapsed());
+  =}
+```
+
+This handler will be invoked _instead of_ the normal reaction when a tardy message arrives.
+This example shows how to extract the **intended tag**, which is a timestamp, microstep pair.
+For this grid application, merely printing a warning like this is probably not the right thing to do.
+What could you do better?
+
+
+In some cases, it is actually OK to handle tardy messages just like ordinary messages.
+The `GridInterface` reactor used to generate test cases is an example of this.
+Its `status` input is used to report the balance as viewed by the local GridManager.
+If it is OK for these reports to be made late, then we can annotate the reaction with an empty `tardy` handler, as follows:
+
+```
+  reaction(status) {=
+    lf_print("%s balance: %d MW", self->node_name, status->value);
+  =} tardy // Handle tardy messages like any other message.
+```
+
+---
+
+## The CAL Theorem
+
+The waiting introduced by timestamps is not a bug — it is **fundamental**. The **CAL theorem** ([Lee et al., 2023](https://doi.org/10.1145/3609119)) states:
 
 > It is impossible to achieve consistency without paying a price in **availability**, where the price is proportional to the latencies in the system.
 
-"Availability" here means: how long must an operator wait before their dispatch command takes effect? The longer the STA, the more consistent the system — and the longer operators wait. We'll return to this in Step 6.
+"Availability" here means: how long must an operator wait before their dispatch command takes effect? The longer the `maxwait`, the more consistent the system — and the longer operators wait. We'll return to this in Step 6.
 
 ---
 
 ## Exercises
 
-1. With `STA = 100 ms` and cross-continental latency of 75 ms, what is the maximum clock synchronization error you can tolerate and still guarantee correct ordering?
+1. With `maxwait = 100 ms` and cross-continental latency of 75 ms, what is the maximum clock synchronization error you can tolerate and still guarantee correct ordering?
 
-2. If you reduced STA to 20 ms to improve responsiveness, what would happen if a message arrived 30 ms late? What would the LF runtime do (hint: see the `fault handler` concept)?
+2. If you reduced maxwait to 20 ms to improve responsiveness, what would happen if a message arrived 30 ms late? What would the LF runtime do?
 
 3. Revisit the inconsistency scenario from Step 2 (balance = −150 MW, simultaneous curtail and dispatch). Trace through the execution with timestamps. Do both grid managers reach the same balance?
 

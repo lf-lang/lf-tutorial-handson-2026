@@ -25,7 +25,7 @@ preamble {=
 // ------------------------------------------------------------
 // GridInterface: operator console. Unchanged from Step 2.
 // ------------------------------------------------------------
-reactor GridInterface(hostport: int = 8080, node_name: string = "Node") {
+reactor GridInterface(id: int = 0, node_name: string = "Node") {
   output command: int
   input status: int
 
@@ -44,23 +44,19 @@ reactor GridInterface(hostport: int = 8080, node_name: string = "Node") {
 
   reaction(status) {=
     lf_print("%s balance: %d MW", self->node_name, status->value);
-  =}
+  =} tardy // Handle tardy messages like any other message.
 }
 
 // ------------------------------------------------------------
 // GridManager: same business logic as Step 2, but now processes
 // commands in logical timestamp order thanks to -> connections.
 //
-// STA (Safe To Advance): physical time to wait before processing
-// a message at logical time t. Must exceed clock sync error +
-// network latency.
-//
 // When two commands arrive with the same timestamp (simultaneous
 // events), in1 is always processed before in2. Since the wiring
 // maps California -> in1 and New York -> in2 at BOTH managers,
 // this is deterministic and consistent across the federation.
 // ------------------------------------------------------------
-reactor GridManager(STA: time = 100 ms) {
+reactor GridManager {
   input in1: int  // local operator commands
   input in2: int  // remote operator commands
   output out: int
@@ -71,7 +67,7 @@ reactor GridManager(STA: time = 100 ms) {
     if (in1->is_present) {
         if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
             self->balance += in1->value;
-            lf_print("[ts=%lld] Applied local command %+d MW -> balance %d MW",
+            lf_print("[ts=%lld] Local command %+d MW -> balance %d MW",
                      lf_time_logical_elapsed(), in1->value, self->balance);
         } else {
             lf_print("[ts=%lld] IMBALANCE EVENT: rejected local curtailment "
@@ -83,7 +79,7 @@ reactor GridManager(STA: time = 100 ms) {
     if (in2->is_present) {
         if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
             self->balance += in2->value;
-            lf_print("[ts=%lld] Applied remote command %+d MW -> balance %d MW",
+            lf_print("[ts=%lld] Remote command %+d MW -> balance %d MW",
                      lf_time_logical_elapsed(), in2->value, self->balance);
         } else {
             lf_print("[ts=%lld] IMBALANCE EVENT: rejected remote curtailment "
@@ -93,6 +89,15 @@ reactor GridManager(STA: time = 100 ms) {
         }
     }
     lf_set(out, self->balance);
+  =} tardy {=
+    tag_t intended_tag;
+    if (in1->is_present) {
+      intended_tag = in1->intended_tag;
+    } else {
+      intended_tag = in2->intended_tag;
+    }
+    lf_print_warning("[ts=%lld] Tardy message with intended timestamp %lld received at physical time %lld",
+        lf_time_logical_elapsed(), intended_tag.time - lf_time_start(), lf_time_physical_elapsed());
   =}
 }
 
@@ -102,13 +107,23 @@ reactor GridManager(STA: time = 100 ms) {
 // Both gm1 and gm2 will agree on the balance at every timestamp.
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(hostport=8081, node_name="California")
-  op2 = new GridInterface(hostport=8082, node_name="NewYork")
+  op1 = new GridInterface(id=1, node_name="California")
+  op2 = new GridInterface(id=2, node_name="NewYork")
 
-  // STA = 100 ms: safe for cross-continental links with NTP sync.
-  // Reduce STA to improve responsiveness; increase to tolerate higher latency.
-  gm1 = new GridManager(STA = 100 ms)
-  gm2 = new GridManager(STA = 100 ms)
+  // maxwait: physical time to wait before assuming no more messages
+  // will arrive at a given logical time or less.
+  // Tardy messages are messages with a timestamp t that arrive
+  // after the node has advanced its logical time to t or beyond).
+  // To prevent tardy messages, maxwait must exceed clock sync error +
+  // network latency.
+  //
+  // maxwait = 100 ms: safe for cross-continental links with NTP sync.
+  // A smaller maxwait will improve responsiveness, but increase the risk
+  // of tardy messages.
+  @maxwait(100 ms)
+  gm1 = new GridManager()
+  @maxwait(100 ms)
+  gm2 = new GridManager()
 
   op1.command -> gm1.in1  // Logical connections: timestamps are carried and ordering is enforced.
   op2.command -> gm2.in2

@@ -23,7 +23,7 @@ preamble {=
 // GridInterface: operator console for one regional node.
 // Sends a sequence of dispatch (+) and curtailment (-) commands.
 // ------------------------------------------------------------
-reactor GridInterface(hostport: int = 8080, node_name: string = "Node") {
+reactor GridInterface(id: int = 0, node_name: string = "Node") {
   output command: int
   input status: int
 
@@ -93,8 +93,8 @@ reactor InconsistentGridManager(node_id: int = 1) {
 // diverge and never re-converge (without a correction mechanism).
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(hostport=8081, node_name="California")
-  op2 = new GridInterface(hostport=8082, node_name="NewYork")
+  op1 = new GridInterface(id=1, node_name="California")
+  op2 = new GridInterface(id=2, node_name="NewYork")
   gm1 = new InconsistentGridManager(node_id=1)
   gm2 = new InconsistentGridManager(node_id=2)
 

@@ -1,15 +1,17 @@
-# Step 4: Conservative Coordination — Chandy-Misra Null Messages
+# Step 4: Conservative Coordination — Chandy-Misra with Null Messages
 
-## The Problem with Finite STA
+## The Problem with Finite maxwait
 
-In Step 3, we set `STA = 100 ms`. This means:
+In Step 3, we set `maxwait = 100 ms`. This means:
 
-- The grid manager waits 100 ms after logical time `t` before processing a message at `t`.
-- This is safe *if and only if* every remote message arrives within 100 ms of its timestamp.
+- The grid manager may wait 100 ms after logical time `t` before processing a message at `t`.
+- This is safe (avoids tardy messages) if every remote message arrives within 100 ms of its timestamp.
 
-But what if the link between California and New York goes down for 5 minutes? Or a router becomes congested and introduces 500 ms of latency? The `STA = 100 ms` assumption is violated. The LF runtime will invoke the **fault handler** — but we need to have designed one.
+But what if the link between California and New York goes down for 5 minutes? Or a router becomes congested and introduces 500 ms of latency? The `maxwait = 100 ms` assumption is violated.
+If a local event has caused logical time to advance, then when the message finally arrives, it will be tardy,
+and the LF runtime will invoke the **tardy handler**.
 
-A more principled approach avoids making assumptions about latency altogether.
+An alternative approach avoids making assumptions about latency altogether.
 
 ---
 
@@ -17,45 +19,62 @@ A more principled approach avoids making assumptions about latency altogether.
 
 Instead of guessing that all messages will arrive within some time budget, the **conservative approach** says:
 
-> A node must not process a message at logical time `t` until it has proof that no earlier message is coming from any connected node.
+> A node must not process a message at tag `g` until it has proof that no message with tag `g` or less will later arrive.
 
-This is the Chandy-Misra algorithm (1979), originally developed for distributed simulation. LF supports it via `STA = forever`:
+In LF, messages on a connection from one federate to another are delivered reliably in order.
+Moreover, all messages on such a connection have strictly increasing tags, where a **tag** is a timestamp, microstep pair, `g = (t, m)`.
+Hence, when a message has arrived on an input port with some tag `g`, the receiving federate knows it has already received all messages with earlier tags on this input port.
+
+The [Chandy-Misra approach (1979)](https://doi.org/10.1109/TSE.1979.230182), originally developed for distributed simulation, waits to advance to a tag `g` until a message has been received on **every** input port with tag at least `g`.
+LF supports this method via `maxwait = forever`:
 
 ```lf
-reactor GridManager(STA: time = forever) {
-    // ...
-}
+  @maxwait(forever)
+  gm1 = new GridManager()
 ```
 
-With `STA = forever`, the grid manager will wait **indefinitely** — until it receives positive evidence from the remote node that no message with timestamp ≤ `t` is coming.
+With `maxwait = forever`, the grid manager will wait **indefinitely** — until it receives positive evidence from the remote node that no message with tag ≤ `g` is coming.
 
+Of course, waiting forever sounds like a bad idea.
+What if the remote `GridInterface` 
 How does that evidence arrive? That's where **null messages** come in.
 
 ---
 
 ## Null Messages
 
-In our grid, commands are sent only when operators issue dispatches or curtailments. If California issues no commands for 10 minutes, New York's manager has no evidence about California's timeline — and blocks forever under `STA = forever`.
+In our grid, commands are sent only when operators issue dispatches or curtailments. If California issues no commands for 10 minutes, New York's manager has no evidence about California's timeline — and blocks forever under `maxwait = forever`.
 
 The fix: California's node sends **null messages** periodically. A null message says:
 
 > "I have no real command at this timestamp, but here is my current timestamp. You may safely advance past it."
 
-In the grid context, a null message with value `0` means "no change in dispatch this QuickDispatchsecond." It is a heartbeat that lets the remote manager advance logical time even during quiet periods.
+In the grid context, a null message with value `0` can be used as "no change in dispatch." It is a heartbeat that lets the remote manager advance logical time even during quiet periods.
+We create a `GridServer` that wraps the `OperatorConsole` and sends null messages periodically when the console has nothing to say:
 
 ```lf
 reactor GridServer(null_message_period: time = 1 s) {
-    input  in: int
-    output received: int
-    timer  t(0, null_message_period)
+  input balance_in: int  // balance feedback from local GridManager
+  output command_out: int  // real or null command, forwarded to GridManagers
 
-    reaction(w.received, t) -> received {=
-        if (w.received->is_present) {
-            lf_set(received, w.received->value);  // real command
-        } else {
-            lf_set(received, 0);  // null message: no dispatch this tick
-        }
-    =}
+  console = new OperatorConsole()
+
+  timer heartbeat(0, null_message_period)  // Null-message heartbeat timer: fires every null_message_period
+
+  // On each heartbeat: forward real command if present, else null message
+  reaction(console.command, heartbeat) -> command_out {=
+    if (console.command->is_present) {
+        lf_set(command_out, console.command->value);
+    } else {
+        // Null message: advances remote logical time, no grid effect
+        lf_set(command_out, 0);
+    }
+  =}
+
+  // Print balance to operator display
+  reaction(balance_in) {=
+    lf_print("Grid balance = %d MW", balance_in->value);
+  =} tardy // Handle tardy messages like any other message.
 }
 ```
 
@@ -66,7 +85,7 @@ The timer fires every second. If no real command has arrived, a `0` is forwarded
 ## Guarantees and Costs
 
 **What you get:**
-- **Strong consistency**: both grid managers agree on the balance at every logical timestamp. No STA violations, ever.
+- **Strong consistency**: both grid managers agree on the balance at every logical timestamp. No tardy violations, ever.
 - **Bounded wait**: the maximum wait is ~1 second (the null message period) plus network latency.
 
 **What you give up:**
@@ -87,7 +106,7 @@ And here is what our system looks like:
 
 Key changes from Step 3:
 - `GridInterface` is wrapped in `GridServer`, which adds a null-message timer.
-- `GridManager` has `STA = forever`.
+- `GridManager` has `maxwait = forever`.
 - Logical connections (`->`) are retained.
 
 ---
@@ -98,7 +117,7 @@ Key changes from Step 3:
 
 2. If we reduce the null message period from 1 s to 100 ms, how does this affect (a) wait time, (b) network overhead, and (c) resilience to node failure?
 
-3. Could we use `STA = forever` with *no* null messages at all? Under what circumstances would the system make progress?
+3. Could we use `maxwait = forever` with *no* null messages at all? Under what circumstances would the system make progress?
 
 ---
 

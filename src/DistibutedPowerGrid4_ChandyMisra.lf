@@ -1,7 +1,7 @@
 /**
  * Step 4: Conservative Coordination with Chandy-Misra Null Messages
  *
- * GridManager now uses STA = forever: it will not advance logical time past t until it has received
+ * GridManager now uses maxwait = forever: it will not advance logical time past t until it has received
  * a message (real or null) from every connected upstream federate with timestamp >= t.
  *
  * GridServer wraps the operator interface and emits null messages (value = 0, meaning "no dispatch
@@ -51,20 +51,13 @@ reactor OperatorConsole(node_name: string = "Node") {
 // null_message_period determines the maximum wait in GridManager:
 // max_wait ≈ null_message_period + network_latency
 // ------------------------------------------------------------
-reactor GridServer(node_name: string = "Node", null_message_period: time = 1 s) {
+reactor GridServer(null_message_period: time = 1 s) {
   input balance_in: int  // balance feedback from local GridManager
   output command_out: int  // real or null command, forwarded to GridManagers
-  output status_out: int  // balance displayed to operator
 
-  console = new OperatorConsole(node_name=node_name)
+  console = new OperatorConsole()
 
   timer heartbeat(0, null_message_period)  // Null-message heartbeat timer: fires every null_message_period
-
-  // Forward balance to operator display
-  reaction(balance_in) -> status_out {=
-    lf_print("%s: grid balance = %d MW", self->node_name, balance_in->value);
-    lf_set(status_out, balance_in->value);
-  =}
 
   // On each heartbeat: forward real command if present, else null message
   reaction(console.command, heartbeat) -> command_out {=
@@ -75,17 +68,22 @@ reactor GridServer(node_name: string = "Node", null_message_period: time = 1 s) 
         lf_set(command_out, 0);
     }
   =}
+
+  // Print balance to operator display
+  reaction(balance_in) {=
+    lf_print("Grid balance = %d MW", balance_in->value);
+  =} tardy // Handle tardy messages like any other message.
 }
 
 // ------------------------------------------------------------
-// GridManager: STA = forever means it will wait without bound
+// GridManager: maxwait = forever means it will wait without bound
 // until it has received a message from every upstream federate
 // with timestamp >= t, before processing events at timestamp t.
 //
 // With null messages flowing in every null_message_period, the
 // actual wait is bounded to ~null_message_period + latency.
 // ------------------------------------------------------------
-reactor GridManager(STA: time = forever) {
+reactor GridManager {
   input in1: int  // from local GridServer (real or null)
   input in2: int  // from remote GridServer (real or null)
   output out: int
@@ -126,17 +124,21 @@ reactor GridManager(STA: time = forever) {
 // Top-level federation: Chandy-Misra style coordination.
 // ------------------------------------------------------------
 federated reactor {
-  s1 = new GridServer(node_name="California", null_message_period = 1 s)
-  s2 = new GridServer(node_name="NewYork", null_message_period = 1 s)
+  @maxwait(0 s)
+  California = new GridServer(null_message_period = 1 s)
+  @maxwait(0 s)
+  NewYork = new GridServer(null_message_period = 1 s)
 
-  gm1 = new GridManager(STA=forever)
-  gm2 = new GridManager(STA=forever)
+  @maxwait(forever)
+  gm1 = new GridManager()
+  @maxwait(forever)
+  gm2 = new GridManager()
 
-  s1.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
-  s2.command_out -> gm2.in2
-  s1.command_out -> gm2.in1  // California -> New York manager
-  s2.command_out -> gm1.in2  // New York   -> California manager
+  California.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
+  NewYork.command_out -> gm2.in2
+  California.command_out -> gm2.in1  // California -> New York manager
+  NewYork.command_out -> gm1.in2  // New York   -> California manager
 
-  gm1.out -> s1.balance_in after 0  // Balance feedback to operator displays
-  gm2.out -> s2.balance_in after 0
+  gm1.out -> California.balance_in
+  gm2.out -> NewYork.balance_in
 }

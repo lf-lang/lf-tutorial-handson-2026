@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "releases/*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check-compile-and-run:
+    name: Compile and run LF examples
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        run: |
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Install C build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - name: Check LF files compile
+        uses: lf-lang/action-check-lf-files@main
+        with:
+          check_mode: "compile"
+          no_compile_flag: false
+          search_dir: "src"
+          compiler_ref: "master"
+
+      - name: Smoke-run generated LF programs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+          lf_files=(src/*.lf)
+
+          if (( ${#lf_files[@]} == 0 )); then
+            echo "No .lf files found under src/."
+            exit 1
+          fi
+
+          for file in "${lf_files[@]}"; do
+            name="$(basename "$file" .lf)"
+
+            launch_script="bin/${name}_launch.sh"
+            executable="bin/${name}"
+
+            if [[ -x "$launch_script" ]]; then
+              runner="$launch_script"
+            elif [[ -x "$executable" ]]; then
+              runner="$executable"
+            else
+              echo "No generated executable or launch script found for $file."
+              exit 1
+            fi
+
+            echo "::group::Run $runner"
+            set +e
+            timeout --kill-after=5s 10s "$runner"
+            status=$?
+            set -e
+
+            if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 137 ]]; then
+              echo "$runner failed with exit code $status."
+              exit "$status"
+            fi
+
+            if [[ "$status" -eq 124 || "$status" -eq 137 ]]; then
+              echo "$runner ran until the smoke-test timeout, as expected for a reactive example."
+            fi
+            echo "::endgroup::"
+          done

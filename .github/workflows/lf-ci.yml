@@ -62,15 +62,12 @@ jobs:
           for file in "${lf_files[@]}"; do
             name="$(basename "$file" .lf)"
 
-            launch_script="bin/${name}_launch.sh"
             executable="bin/${name}"
 
-            if [[ -x "$launch_script" ]]; then
-              runner="$launch_script"
-            elif [[ -x "$executable" ]]; then
+            if [[ -x "$executable" ]]; then
               runner="$executable"
             else
-              echo "No generated executable or launch script found for $file."
+              echo "No generated launcher found at $executable for $file."
               exit 1
             fi
 

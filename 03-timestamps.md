@@ -108,7 +108,7 @@ For two nodes in California and New York (cross-continental latency ~60–80 ms)
 Tardy events, if not handled, result in messages like this:
 
 ```
-Fed 1 (op2_main): ERROR: STP violation occurred in a trigger to reaction 3, and there is no handler.
+Fed 1 (gi2_main): ERROR: STP violation occurred in a trigger to reaction 3, and there is no handler.
 **** Invoking reaction at the wrong tag!
 ```
 

@@ -112,7 +112,7 @@ reactor GridManager {
 // ------------------------------------------------------------
 federated reactor {
   gi1 = new GridInterface(id=1, node_name="California")
-  gi2 = new GridInterface(id=2, node_name="New York")
+  gi2 = new GridInterface(id=2, node_name = "New York")
 
   // maxwait: physical time to wait before assuming no more messages will
   // arrive at a given logical time or earlier. A tardy message is one that

@@ -83,14 +83,14 @@ Time →
 California node:    curtail -80 ──────────────────────────► gm1 sees it first
 New York node:                   dispatch +100 ────────────► gm1 sees it second
                                                                    ↓
-                                                         gm1 final: -130 MW ✓ no event
+                                                          gm1 final: -50 MW ✓ no event
 
 California node:    curtail -80 ────────────────────────────────────────────────► gm2 sees it second  
 New York node:                   dispatch +100 ──────────────────────────────► gm2 sees it first
                                                                                      ↓
-                                                                           gm2 final: -50 MW ✓ no event
+                                                                           gm2 final: -130 MW ✓ no event
 
-But gm1 (-130) ≠ gm2 (-50): INCONSISTENT STATE!
+But gm1 (-50) ≠ gm2 (-130): INCONSISTENT STATE!
 ```
 
 In a real grid, this inconsistency means the two control centers have **contradictory views of grid health**. Automated systems making decisions based on these views could take opposing corrective actions, worsening the situation.

@@ -28,34 +28,31 @@ The CAL theorem says that strong consistency requires enough waiting, or enough 
 
 ## The Design Space, Summarized
 
-Here is a map of the designs from this tutorial against the consistency-availability tradeoff:
+Here is a map of the designs from this tutorial against the consistency-availability tradeoff. Step 5 is shown as two paths because it deliberately gives different guarantees to different classes of commands:
 
 ```
 CONSISTENCY
-    ▲
-    │  Step 4 (Chandy-Misra, maxwait=forever)
-    │    Strong consistency
-    │    Availability: unbounded wait on failure
-    │
-    │  Step 3 (Timestamps, finite maxwait)
-    │    Strong consistency when maxwait ≥ latency
-    │    Availability: bounded wait (<= maxwait)
-    │    Risk: fault is possible if maxwait < actual latency
-    │
-    │  Step 5 (Hybrid)
-    │    Strong consistency for curtailments (maxwait=forever)
-    │    Bounded availability for dispatches (maxwait=30ms)
-    │    Fault handler handles occasional stale estimates
-    │
-    │  Step 2 (Non-commutative, no coordination)
-    │    No consistency (permanent divergence)
-    │    High availability (no wait)
-    │
-    │  Step 1 (Commutative CRDT)
-    │    Eventual consistency
-    │    Maximum availability (no wait)
-    │
-    └────────────────────────────────────────────► AVAILABILITY
+strong ▲  Step 4: conservative coordination
+       │    Strong consistency; may wait forever if an upstream node stops.
+       │
+       │  Step 5 slow path: curtailments
+       │    Same strong-consistency path as Step 4 for high-risk commands.
+       │
+       │             Step 3: finite maxwait
+       │               Strong consistency only while apparent latency <= maxwait;
+       │               otherwise the tardy handler is part of the design.
+       │
+eventual│                                      Step 5 fast path: dispatch-up
+       │                                        Fast response with later reconciliation.
+       │
+       │                                      Step 1: commutative actor
+       │                                        Eventual consistency and maximum availability.
+       │
+none   │                                      Step 2: non-commutative actor
+       │                                        High availability, but possible permanent divergence.
+       │
+       └────────────────────────────────────────────────────────► AVAILABILITY
+          low / may block                                      high / responds fast
 ```
 
 ---

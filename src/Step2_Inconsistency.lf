@@ -96,7 +96,7 @@ reactor InconsistentGridManager(node_id: int = 1) {
 // ------------------------------------------------------------
 federated reactor {
   gi1 = new GridInterface(id=1, node_name="California")
-  gi2 = new GridInterface(id=2, node_name="NewYork")
+  gi2 = new GridInterface(id=2, node_name="New York")
   gm1 = new InconsistentGridManager(node_id=1)
   gm2 = new InconsistentGridManager(node_id=2)
 

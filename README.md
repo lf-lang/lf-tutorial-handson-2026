@@ -1,17 +1,17 @@
 # LF Tutorial @ CPS-IoT Week 2026 - Hands-on Session: Logical Time in Distributed Systems: A Power Grid Tutorial
 
-> **Based on:** ["Logical Time in Actor Systems" by Edward A. Lee (UC Berkeley, 2025)](https://ptolemy.berkeley.edu/~eal/publications/LeeTimeAghaFestschriftPreprint2025.pdf)
+> **Based on:** ["Consistency vs. Availability in Distributed Cyber-Physical Systems" by Lee et al. (2023)](https://dl.acm.org/doi/10.1145/3609119)
 > **Domain:** Distributed power grid control using Lingua Franca
 
 ---
 
 ## What This Tutorial Is About
 
-Modern power grids are distributed cyber-physical systems. Generation, transmission, and load are spread across vast geographic areas. Multiple control nodes must coordinate in real time — and they must **agree** on the state of the grid even when separated by hundreds of milliseconds of network latency.
+Modern power grids are distributed cyber-physical systems. Generation, transmission, and load are spread across vast geographic areas. Multiple control nodes must coordinate in real time, and they must **agree** on the state of the grid even when separated by hundreds of milliseconds of network latency.
 
-This tutorial takes you through a series of progressively more sophisticated designs for a distributed grid controller, using the [Lingua Franca (LF)](https://lf-lang.org/) coordination language. Each design exposes a new problem and motivates the next solution, culminating in a system that achieves **eventual consistency** while bounding unavailability to a manageable risk.
+This tutorial takes you through a series of progressively more sophisticated designs for a distributed grid controller, using the [Lingua Franca (LF)](https://lf-lang.org/) coordination language. Each design exposes a new problem and motivates the next solution, ending with a hybrid design that separates fast, low-risk commands from slower, strongly consistent decisions.
 
-The design journey mirrors the consistency-vs-availability tradeoff captured by the **CAL theorem**: you cannot have both perfect consistency and guaranteed availability in a distributed system. Every solution is a negotiated compromise.
+The design journey mirrors the consistency-vs-availability tradeoff captured by the **CAL theorem**: stronger consistency requires more waiting, more assumptions about latency, or carefully chosen fault handling. Each design makes an explicit, application-specific compromise.
 
 ---
 
@@ -19,13 +19,13 @@ The design journey mirrors the consistency-vs-availability tradeoff captured by 
 
 We model a minimal but realistic slice of a power grid:
 
-- **Two regional control nodes** — one in the **Western Interconnect** (e.g., California), one in the **Eastern Interconnect** (e.g., New York).
+- **Two regional control nodes**: one in the **Western Interconnect** (e.g., California), one in the **Eastern Interconnect** (e.g., New York).
 - Each node manages a **local generation pool** (power plants it can dispatch up or down).
 - Each node maintains a **shared grid state**: the current net generation balance for the whole system (positive = excess generation, negative = deficit).
 - Operators at either node can issue **dispatch commands**: increase generation (+MW) or curtail generation (−MW).
 - The grid is stable only when balance is near zero. An **imbalance** (too much curtailment while the balance is already negative) risks a **cascading blackout**.
 
-This is analogous to the banking example in the paper: instead of deposits/withdrawals affecting a bank balance, we have generation dispatches affecting grid balance. Instead of overdrafts, we have grid imbalances severe enough to trip protective relays.
+This follows the paper's focus on shared physical state in real-time systems: instead of vehicles or roadside units agreeing on intersection state, we have grid controllers agreeing on generation balance. Instead of collisions, the failure mode is a grid imbalance severe enough to trip protective relays.
 
 ---
 
@@ -33,8 +33,8 @@ This is analogous to the banking example in the paper: instead of deposits/withd
 
 | Step | File | Topic |
 |------|------|-------|
-| 1 | [01-actor-model.md](01-actor-model.md) | The basic actor model — commutative operations, eventual consistency |
-| 2 | [02-inconsistency.md](02-inconsistency.md) | When operations are non-commutative — the consistency problem |
+| 1 | [01-actor-model.md](01-actor-model.md) | The basic actor model: commutative operations and eventual consistency |
+| 2 | [02-inconsistency.md](02-inconsistency.md) | When operations are non-commutative: the consistency problem |
 | 3 | [03-timestamps.md](03-timestamps.md) | Adding logical timestamps to order events |
 | 4 | [04-conservative.md](04-conservative.md) | Conservative coordination with Chandy-Misra null messages |
 | 5 | [05-hybrid.md](05-hybrid.md) | Hybrid design: fast-path for safe commands, strong consistency for risky ones |
@@ -48,9 +48,10 @@ This is analogous to the banking example in the paper: instead of deposits/withd
 - **Physical connections** (`~>`) vs **logical connections** (`->`) in LF
 - **Eventual consistency** via ACID 2.0 / CRDTs
 - **Logical timestamps** and the notion of *logical time*
-- **STA** (Safe To Advance) and **STAA** (Safe To Assume Absent) parameters
+- **`maxwait`** as a practical safe-to-advance bound
+- **Tardy handlers** for messages that arrive too late
 - **Conservative coordination** (Chandy-Misra null messages)
-- **The CAL theorem**: Consistency–Availability–Latency tradeoff
+- **The CAL theorem**: consistency, availability, and latency tradeoff
 - **Fault handlers** for bounded unavailability
 
 ---
@@ -60,6 +61,8 @@ This is analogous to the banking example in the paper: instead of deposits/withd
 - Basic familiarity with concurrent programming concepts
 - Some exposure to distributed systems (helpful but not required)
 - Lingua Franca installed: see [lf-lang.org](https://lf-lang.org/docs/installation)
+- A C build toolchain and CMake, since the examples use `target C`
+- `tmux` if you want to run federates in separate terminal panes
 
 ---
 
@@ -83,21 +86,19 @@ After creation, clone **your** new repository locally and follow [Running the Co
 
 ## Running the Code
 
-Each `.lf` file in the `src/` directory can be compiled and run with:
+All `.lf` files in this repository are federated LF programs. Compile an example with `lfc`:
 
 ```bash
 lfc src/<filename>.lf
-./bin/<program_name>
 ```
 
-For federated programs (Steps 3 onward), each federate runs as a separate process. The LF compiler generates a launch script:
+For example:
 
 ```bash
-lfc src/<filename>.lf
-./bin/<program_name>_launch.sh
+lfc src/Step1_Actor.lf
 ```
 
-# References
+Compilation generates a launcher under `bin/` with the same base name as the source file, without the `.lf` extension. For `src/Step1_Actor.lf`, the launcher is:
 
 ```bash
 ./bin/Step1_Actor

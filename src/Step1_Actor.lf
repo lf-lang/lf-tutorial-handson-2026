@@ -1,0 +1,102 @@
+/**
+ * Step 1: Distributed Grid Manager - Actor Style (No Timestamps)
+ *
+ * Two regional control nodes share a grid balance. Commands from either node (positive = dispatch
+ * up, negative = curtail) are forwarded to both grid managers via physical connections (~>).
+ * Because the operation is commutative (addition), both managers eventually agree on the same
+ * balance even if they apply the two commands in different orders.
+ *
+ * This is the "baseline" design: no business logic that enforces limits. See Step 2 for what
+ * happens when we add real-world constraints.
+ */
+target C {
+  coordination: decentralized,
+  timeout: 3 s
+}
+
+// ------------------------------------------------------------
+// ScriptedGridInterface: stands in for an operator console at one node.
+// In a real system this would be a SCADA terminal or EMS display.
+// Positive integers = dispatch up (MW); negative = curtail (MW).
+//
+// Exercise template:
+// Change only command_value and command_time in the main reactor below to
+// create a different trace. The default values instantiate Exercise 1 from
+// 01-actor-model.md:
+// California dispatches +100 MW at 0 ms, and New York curtails -100 MW at 1 ms.
+// ------------------------------------------------------------
+reactor ScriptedGridInterface(
+    node_name: string = "Node",
+    command_value: int = 0,
+    command_time: time = 0 ms) {
+  output command: int                // operator issues a dispatch command
+  input status: int                  // current grid balance, displayed to operator
+
+  timer command_timer(command_time)  // One-shot timer: emits command_value once at command_time.
+
+  reaction(command_timer) -> command {=
+    if (self->command_value >= 0) {
+        lf_print("%s dispatches %+d MW", self->node_name, self->command_value);
+    } else {
+        lf_print("%s curtails %d MW", self->node_name, self->command_value);
+    }
+    lf_set(command, self->command_value);
+  =}
+
+  reaction(status) {=
+    lf_print("%s sees balance: %d MW", self->node_name, status->value);
+  =}
+}
+
+// ------------------------------------------------------------
+// SimpleGridManager: maintains a copy of the grid balance.
+// Applies every dispatch command it receives from either node.
+// Hint: the two if-statements may run in either order at different managers,
+// but addition is associative and commutative, so the final sum is unchanged.
+// ------------------------------------------------------------
+reactor SimpleGridManager(node_name: string = "GridManager") {
+  input in1: int   // commands arriving from California
+  input in2: int   // commands arriving from New York
+  output out: int  // current balance reported back to local operator
+
+  state balance: int = 0
+
+  reaction(in1, in2) -> out {=
+    if (in1->is_present) {
+        self->balance += in1->value;
+        lf_print("%s applied California command %+d MW -> balance now %d MW",
+                 self->node_name, in1->value, self->balance);
+    }
+    if (in2->is_present) {
+        self->balance += in2->value;
+        lf_print("%s applied New York command %+d MW -> balance now %d MW",
+                 self->node_name, in2->value, self->balance);
+    }
+    lf_set(out, self->balance);
+  =}
+}
+
+// ------------------------------------------------------------
+// Top-level federated program.
+// gi1/gm1 = Western node (California)
+// gi2/gm2 = Eastern node (New York)
+// Physical connections (~>) are reliable per link, but they do not coordinate
+// ordering across the two incoming links to a grid manager.
+// ------------------------------------------------------------
+federated reactor {
+  // Exercise 1 setup. Change these four parameter values to try a different
+  // pair of commands or command times, without writing new reactors or timers.
+  gi1 = new ScriptedGridInterface(node_name="California", command_value=100, command_time = 0 ms)
+  gi2 = new ScriptedGridInterface(node_name = "New York", command_value=-100, command_time = 1 ms)
+
+  gm1 = new SimpleGridManager(node_name = "California manager")
+  gm2 = new SimpleGridManager(node_name = "New York manager")
+
+  gi1.command ~> gm1.in1  // Both nodes receive every command (cross-connected)
+  gi2.command ~> gm2.in2
+  gi1.command ~> gm2.in1  // California -> New York manager
+  gi2.command ~> gm1.in2  // New York   -> California manager
+
+  gm1.out ~> gi1.status  // Each operator sees balance from their local manager
+  gm2.out ~> gi2.status
+}

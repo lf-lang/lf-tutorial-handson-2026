@@ -1,0 +1,152 @@
+/**
+ * Step 5: Hybrid Design - Fast-Path for Safe Commands
+ *
+ * Architecture:
+ * - GridServer: wraps operator console + null message heartbeat (as in Step 4)
+ * - GridManager instances use maxwait = forever: they maintain the authoritative balance and handle
+ * all commands, including curtailments. This is the slow, strongly consistent path.
+ * - QuickDispatch instances use maxwait = 30 ms: they acknowledge dispatch-up commands on a fast
+ * path and later reconcile with the authoritative balance.
+ *
+ * Exercise focus:
+ * - Dispatch-up commands are safe to acknowledge quickly because they cannot make a deficit worse.
+ * - Curtailment commands still go through the strongly consistent path.
+ * - The tardy handler shows where an optimistic fast-path decision can be audited or corrected.
+ */
+target C {
+  coordination: decentralized
+}
+
+import GridServer from "Step4_Conservative.lf"
+
+preamble {=
+  #define MIN_SAFE_BALANCE (-200)
+=}
+
+// ------------------------------------------------------------
+// GridManager: authoritative balance. The instances below set maxwait = forever,
+// so they handle all commands only after enough upstream evidence has arrived.
+// This is where curtailments are checked against MIN_SAFE_BALANCE.
+// ------------------------------------------------------------
+reactor GridManager {
+  input in1: int
+  input in2: int
+  output out: int
+
+  state balance: int = 0
+
+  reaction(in1, in2) -> out {=
+    if (in1->is_present && in1->value != 0) {
+        if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
+            self->balance += in1->value;
+            lf_print("[ts=%lld] GridManager: applied local %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in1->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] GridManager: IMBALANCE EVENT: rejected %d MW "
+                     "(balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in1->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    if (in2->is_present && in2->value != 0) {
+        if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
+            self->balance += in2->value;
+            lf_print("[ts=%lld] GridManager: applied remote %+d MW -> balance %d MW",
+                     lf_time_logical_elapsed(), in2->value, self->balance);
+        } else {
+            lf_print("[ts=%lld] GridManager: IMBALANCE EVENT: rejected %d MW "
+                     "(balance %d MW, threshold %d MW)",
+                     lf_time_logical_elapsed(), in2->value,
+                     self->balance, MIN_SAFE_BALANCE);
+        }
+    }
+    lf_set(out, self->balance);
+  =}
+}
+
+// ------------------------------------------------------------
+// QuickDispatch: fast-path handler for dispatch-up commands only.
+//
+// Exercise hint: compare this with GridManager. QuickDispatch intentionally
+// ignores curtailments because they are risky near the threshold. Its local
+// balance is only an estimate until true_balance catches up.
+// ------------------------------------------------------------
+reactor QuickDispatch {
+  input dispatch: int      // from local GridServer (real or null commands)
+  input true_balance: int  // from local GridManager (authoritative)
+  output ack: int          // fast acknowledgement to operator
+
+  state balance: int = 0
+
+  // Normal path: true_balance arrives before or with dispatch.
+  reaction(true_balance, dispatch) -> ack {=
+    if (true_balance->is_present) {
+        self->balance = true_balance->value;
+    }
+    if (dispatch->is_present && dispatch->value > 0) {
+        // Only handle dispatch-up on the fast path.
+        self->balance += dispatch->value;
+        lf_set(ack, self->balance);
+        lf_print("[ts=%lld] QuickDispatch: fast ack +%d MW -> est. balance %d MW",
+                 lf_time_logical_elapsed(), dispatch->value, self->balance);
+    }
+    // Negative commands (curtailments) are ignored here. They are handled by
+    // GridManager on the slow, strongly consistent path.
+  =} tardy {=
+    // Fault path: true_balance arrived late, after this federate already
+    // advanced past its intended timestamp. Correct the estimate and log the
+    // anomaly so a real system could alert or audit the fast-path decision.
+    if (true_balance->is_present) {
+        lf_print("[ts=%lld] QuickDispatch: late true_balance arrived (%d MW), "
+                 "correcting estimate from %d MW.",
+                 lf_time_logical_elapsed(), true_balance->value, self->balance);
+        self->balance = true_balance->value;
+    }
+    if (dispatch->is_present && dispatch->value > 0) {
+        // A fast dispatch may have used a stale estimate. For dispatch-up this
+        // is generally safe, but it should still be visible in an audit trail.
+        lf_print("[ts=%lld] QuickDispatch: WARNING: dispatch of +%d MW "
+                 "processed with stale balance estimate. "
+                 "Operator acknowledged %d MW (may differ from true balance).",
+                 lf_time_logical_elapsed(), dispatch->value, self->balance);
+    }
+  =}
+}
+
+// ------------------------------------------------------------
+// Top-level: hybrid federation.
+// Slow path: gs1/gs2 -> gm1/gm2 carries all commands and preserves consistency.
+// Fast path: gs1/gs2 -> qd1/qd2 lets local dispatch-up commands be acknowledged
+// quickly. Try tracing one positive and one negative command through both paths.
+// ------------------------------------------------------------
+federated reactor {
+  gs1 = new GridServer(null_message_period = 1 s)
+  gs2 = new GridServer(null_message_period = 1 s)
+
+  @maxwait(forever)
+  gm1 = new GridManager()
+  @maxwait(forever)
+  gm2 = new GridManager()
+
+  @maxwait(30 ms)
+  qd1 = new QuickDispatch()
+  // California fast-path handler
+  @maxwait(30 ms)
+  qd2 = new QuickDispatch()
+
+  // New York fast-path handler
+  // Slow path: all commands to both grid managers (cross-connected)
+  gs1.command_out -> gm1.in1
+  gs2.command_out -> gm2.in2
+  gs1.command_out -> gm2.in1
+  gs2.command_out -> gm1.in2
+
+  gm1.out -> gs1.balance_in  // Balance feedback to servers (operator display via slow path)
+  gm2.out -> gs2.balance_in
+
+  gs1.command_out -> qd1.dispatch  // Fast path: local commands -> local QuickDispatch
+  gs2.command_out -> qd2.dispatch
+
+  gm1.out -> qd1.true_balance  // Authoritative balance used to correct the fast-path estimate.
+  gm2.out -> qd2.true_balance  // Fast acknowledgements would go to a separate "estimated balance" field in a real UI.
+}

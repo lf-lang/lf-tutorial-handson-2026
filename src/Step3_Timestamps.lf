@@ -1,18 +1,18 @@
 /**
  * Step 3: Distributed Grid Manager with Logical Timestamps
  *
- * The only change from Step 2 is that connections now use -> instead of ~>. This causes LF to carry
- * timestamps on all messages and guarantees that both grid managers handle every command in the
+ * The main change from Step 2 is that connections now use -> instead of ~>. LF carries timestamps
+ * on these messages, and with a large enough maxwait, both grid managers handle commands in the
  * same logical time order.
  *
- * The GridManager has an STA (Safe To Advance) parameter. This is the amount of physical time the
- * manager must wait after a timestamp t before it can safely process messages at that timestamp. It
- * must be set to at least:
+ * The GridManager instances below use @maxwait. This is the amount of physical time a manager
+ * waits after timestamp t before assuming no earlier remote message will arrive. For this example,
+ * it must be at least:
  *
- * STA >= clock_sync_error + network_latency + processing_overhead
+ * maxwait >= clock_sync_error + network_latency + processing_overhead
  *
- * For cross-continental US nodes with NTP: STA ~ 100 ms is a reasonable start. For tighter
- * guarantees, use PTP (~1 ms error) or GPS (~100 ns error).
+ * For cross-continental US nodes with NTP, maxwait = 100 ms is a reasonable starting point. For
+ * tighter guarantees, use PTP (~1 ms error) or GPS (~100 ns error).
  */
 target C {
   coordination: decentralized
@@ -23,7 +23,7 @@ preamble {=
 =}
 
 // ------------------------------------------------------------
-// GridInterface: operator console. Unchanged from Step 2.
+// GridInterface: same scripted operator console pattern as Step 2.
 // ------------------------------------------------------------
 reactor GridInterface(id: int = 0, node_name: string = "Node") {
   output command: int
@@ -48,8 +48,9 @@ reactor GridInterface(id: int = 0, node_name: string = "Node") {
 }
 
 // ------------------------------------------------------------
-// GridManager: same business logic as Step 2, but now processes
-// commands in logical timestamp order thanks to -> connections.
+// GridManager: same business logic as Step 2, but now commands arrive on
+// logical connections. The runtime delays processing when needed to preserve
+// timestamp order, up to the @maxwait bound set on each instance below.
 //
 // When two commands arrive with the same timestamp (simultaneous
 // events), in1 is always processed before in2. Since the wiring
@@ -57,8 +58,8 @@ reactor GridInterface(id: int = 0, node_name: string = "Node") {
 // this is deterministic and consistent across the federation.
 // ------------------------------------------------------------
 reactor GridManager {
-  input in1: int  // local operator commands
-  input in2: int  // remote operator commands
+  input in1: int  // commands from California
+  input in2: int  // commands from New York
   output out: int
 
   state balance: int = 0
@@ -90,6 +91,9 @@ reactor GridManager {
     }
     lf_set(out, self->balance);
   =} tardy {=
+    // This handler runs when a message arrives after this federate has already
+    // advanced beyond the message's intended timestamp. Try reducing maxwait
+    // in the main reactor to make this easier to observe.
     tag_t intended_tag;
     if (in1->is_present) {
       intended_tag = in1->intended_tag;
@@ -103,19 +107,18 @@ reactor GridManager {
 
 // ------------------------------------------------------------
 // Top-level: logical connections (->) replace physical ones (~>).
-// The LF runtime now enforces timestamp-ordered delivery.
-// Both gm1 and gm2 will agree on the balance at every timestamp.
+// Both managers can agree on logical order as long as maxwait covers apparent
+// latency. If that assumption is violated, the tardy handler above is invoked.
 // ------------------------------------------------------------
 federated reactor {
   gi1 = new GridInterface(id=1, node_name="California")
   gi2 = new GridInterface(id=2, node_name="NewYork")
 
-  // maxwait: physical time to wait before assuming no more messages
-  // will arrive at a given logical time or less.
-  // Tardy messages are messages with a timestamp t that arrive
-  // after the node has advanced its logical time to t or beyond).
-  // To prevent tardy messages, maxwait must exceed clock sync error +
-  // network latency.
+  // maxwait: physical time to wait before assuming no more messages will
+  // arrive at a given logical time or earlier. A tardy message is one that
+  // arrives after the node has already advanced beyond its intended timestamp.
+  // To prevent tardy messages, maxwait must exceed clock sync error + network
+  // latency + relevant processing overhead.
   //
   // maxwait = 100 ms: safe for cross-continental links with NTP sync.
   // A smaller maxwait will improve responsiveness, but increase the risk

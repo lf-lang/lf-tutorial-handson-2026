@@ -1,16 +1,16 @@
 /**
  * Step 4: Conservative Coordination with Chandy-Misra Null Messages
  *
- * GridManager now uses maxwait = forever: it will not advance logical time past t until it has received
- * a message (real or null) from every connected upstream federate with timestamp >= t.
+ * GridManager now uses maxwait = forever: it will not advance logical time past t until it has
+ * received evidence from every connected upstream federate that no message with timestamp <= t is
+ * still in flight.
  *
  * GridServer wraps the operator interface and emits null messages (value = 0, meaning "no dispatch
- * change") every null_message_period. This bounds the maximum wait in GridManager to approximately
- * one null_message_period plus network latency.
+ * change") every null_message_period. These heartbeats let a quiet upstream federate advance the
+ * downstream manager's logical time.
  *
- * Trade-off: if a GridServer crashes, null messages stop, and both GridManagers block indefinitely.
- * Strong consistency is preserved, but availability is unbounded in the presence of failures. See
- * Step 5 for how to handle this.
+ * Tradeoff for the exercise: if a GridServer crashes, null messages stop. A downstream GridManager
+ * may then block indefinitely, preserving consistency by giving up availability.
  */
 target C {
   coordination: decentralized
@@ -44,12 +44,13 @@ reactor OperatorConsole(node_name: string = "Node") {
 // ------------------------------------------------------------
 // GridServer: wraps the operator console and adds null messages.
 //
-// A null message (value = 0) is sent every null_message_period
-// if no real command has arrived. This advances the logical
-// timeline of the remote GridManager, preventing indefinite blocking.
+// A null message (value = 0) is sent every null_message_period if no real
+// command has arrived. This gives remote GridManagers evidence that this
+// server has no earlier command pending.
 //
-// null_message_period determines the maximum wait in GridManager:
-// max_wait ≈ null_message_period + network_latency
+// Exercise hint: decreasing null_message_period improves responsiveness but
+// sends more messages. Increasing it reduces network overhead but increases
+// the time a manager may wait during quiet periods.
 // ------------------------------------------------------------
 reactor GridServer(null_message_period: time = 1 s) {
   input balance_in: int  // balance feedback from local GridManager
@@ -57,31 +58,34 @@ reactor GridServer(null_message_period: time = 1 s) {
 
   console = new OperatorConsole()
 
-  timer heartbeat(0, null_message_period)  // Null-message heartbeat timer: fires every null_message_period
+  timer heartbeat(0, null_message_period)  // Heartbeat for real-or-null commands.
 
-  // On each heartbeat: forward real command if present, else null message
+  // On each heartbeat: forward a real command if one is present, else send
+  // a null message. A real command and a heartbeat at the same tag produce
+  // only the real command.
   reaction(console.command, heartbeat) -> command_out {=
     if (console.command->is_present) {
         lf_set(command_out, console.command->value);
     } else {
-        // Null message: advances remote logical time, no grid effect
+        // Null message: advances remote logical time, no grid effect.
         lf_set(command_out, 0);
     }
   =}
 
-  // Print balance to operator display
+  // Print balance to the operator display. It is OK if display updates are
+  // tardy, so the empty tardy handler treats them like normal messages.
   reaction(balance_in) {=
     lf_print("Grid balance = %d MW", balance_in->value);
   =} tardy // Handle tardy messages like any other message.
 }
 
 // ------------------------------------------------------------
-// GridManager: maxwait = forever means it will wait without bound
-// until it has received a message from every upstream federate
-// with timestamp >= t, before processing events at timestamp t.
+// GridManager: maxwait = forever means the instance waits until each upstream
+// connection has provided evidence that it is safe to process timestamp t.
 //
-// With null messages flowing in every null_message_period, the
-// actual wait is bounded to ~null_message_period + latency.
+// With null messages flowing in every null_message_period, the normal wait is
+// bounded by the heartbeat period plus apparent latency. If a GridServer
+// fails, that bound no longer holds.
 // ------------------------------------------------------------
 reactor GridManager {
   input in1: int  // from local GridServer (real or null)
@@ -91,9 +95,8 @@ reactor GridManager {
   state balance: int = 0
 
   reaction(in1, in2) -> out {=
-    // in1 and in2 may be null (value=0) or real commands.
-    // Either way, handle them identically — null messages are
-    // just additions of 0 MW, which have no effect.
+    // in1 and in2 may be null (value=0) or real commands. Null messages are
+    // additions of 0 MW, so ignoring them here has no effect on balance.
     if (in1->is_present && in1->value != 0) {
         if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
             self->balance += in1->value;
@@ -134,7 +137,7 @@ federated reactor {
   @maxwait(forever)
   gm2 = new GridManager()
 
-  gs1.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
+  gs1.command_out -> gm1.in1  // Each server sends a real or null command to both managers.
   gs2.command_out -> gm2.in2
   gs1.command_out -> gm2.in1  // California -> New York manager
   gs2.command_out -> gm1.in2  // New York   -> California manager

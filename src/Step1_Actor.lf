@@ -3,8 +3,8 @@
  *
  * Two regional control nodes share a grid balance. Commands from either node (positive = dispatch
  * up, negative = curtail) are forwarded to both grid managers via physical connections (~>).
- * Because the operation is commutative (addition), both managers will eventually agree on the same
- * balance regardless of message ordering: eventual consistency via CRDT properties.
+ * Because the operation is commutative (addition), both managers eventually agree on the same balance even if
+ * they apply the two commands in different orders.
  *
  * This is the "baseline" design: no business logic that enforces limits. See Step 2 for what happens
  * when we add real-world constraints.
@@ -20,8 +20,9 @@ target C {
 // Positive integers = dispatch up (MW); negative = curtail (MW).
 //
 // Exercise template:
-// Change only command_value and command_time below to create a trace.
-// The default values instantiate Exercise 1 from 01-actor-model.md:
+// Change only command_value and command_time in the main reactor below to
+// create a different trace. The default values instantiate Exercise 1 from
+// 01-actor-model.md:
 // California dispatches +100 MW at 0 ms, and New York curtails -100 MW at 1 ms.
 // ------------------------------------------------------------
 reactor ScriptedGridInterface(
@@ -52,7 +53,8 @@ reactor ScriptedGridInterface(
 // ------------------------------------------------------------
 // SimpleGridManager: maintains a copy of the grid balance.
 // Applies every dispatch command it receives from either node.
-// Operation is commutative and associative -> eventual consistency.
+// Hint: the two if-statements may run in either order at different managers,
+// but addition is associative and commutative, so the final sum is unchanged.
 // ------------------------------------------------------------
 reactor SimpleGridManager(node_name: string = "GridManager") {
   input in1: int   // commands arriving from California
@@ -80,11 +82,12 @@ reactor SimpleGridManager(node_name: string = "GridManager") {
 // Top-level federated program.
 // gi1/gm1 = Western node (California)
 // gi2/gm2 = Eastern node (New York)
-// Physical connections (~>) carry no timestamp coordination.
+// Physical connections (~>) are reliable per link, but they do not coordinate
+// ordering across the two incoming links to a grid manager.
 // ------------------------------------------------------------
 federated reactor {
-  // Exercise 1 setup. Participants can solve the trace exercise by changing
-  // these four parameter values, without writing new reactors or timers.
+  // Exercise 1 setup. Change these four parameter values to try a different
+  // pair of commands or command times, without writing new reactors or timers.
   gi1 = new ScriptedGridInterface(
     node_name="California",
     command_value=100,

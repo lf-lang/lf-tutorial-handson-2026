@@ -125,20 +125,20 @@ reactor GridManager {
 // ------------------------------------------------------------
 federated reactor {
   @maxwait(0 s)
-  California = new GridServer(null_message_period = 1 s)
+  gs1 = new GridServer(null_message_period = 1 s)
   @maxwait(0 s)
-  NewYork = new GridServer(null_message_period = 1 s)
+  gs2 = new GridServer(null_message_period = 1 s)
 
   @maxwait(forever)
   gm1 = new GridManager()
   @maxwait(forever)
   gm2 = new GridManager()
 
-  California.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
-  NewYork.command_out -> gm2.in2
-  California.command_out -> gm2.in1  // California -> New York manager
-  NewYork.command_out -> gm1.in2  // New York   -> California manager
+  gs1.command_out -> gm1.in1  // Every second, each server sends a real or null command to both managers.
+  gs2.command_out -> gm2.in2
+  gs1.command_out -> gm2.in1  // California -> New York manager
+  gs2.command_out -> gm1.in2  // New York   -> California manager
 
-  gm1.out -> California.balance_in
-  gm2.out -> NewYork.balance_in
+  gm1.out -> gs1.balance_in
+  gm2.out -> gs2.balance_in
 }

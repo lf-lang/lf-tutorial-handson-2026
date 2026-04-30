@@ -93,18 +93,18 @@ reactor InconsistentGridManager(node_id: int = 1) {
 // diverge and never re-converge (without a correction mechanism).
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(id=1, node_name="California")
-  op2 = new GridInterface(id=2, node_name="NewYork")
+  gi1 = new GridInterface(id=1, node_name="California")
+  gi2 = new GridInterface(id=2, node_name="NewYork")
   gm1 = new InconsistentGridManager(node_id=1)
   gm2 = new InconsistentGridManager(node_id=2)
 
   // Cross-connected: each manager receives commands from both operators.
   // Physical connections (~>) impose no timestamp ordering.
-  op1.command ~> gm1.in1
-  op2.command ~> gm2.in2
-  op1.command ~> gm2.in1
-  op2.command ~> gm1.in2
+  gi1.command ~> gm1.in1
+  gi2.command ~> gm2.in2
+  gi1.command ~> gm2.in1
+  gi2.command ~> gm1.in2
 
-  gm1.out ~> op1.status
-  gm2.out ~> op2.status
+  gm1.out ~> gi1.status
+  gm2.out ~> gi2.status
 }

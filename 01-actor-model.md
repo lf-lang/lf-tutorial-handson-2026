@@ -61,12 +61,12 @@ The top-level federated program wires everything together. For the first exercis
 
 ```lf
 federated reactor {
-    op1 = new ScriptedGridInterface(
+    gi1 = new ScriptedGridInterface(
         node_name="California",
         command_value=100,
         command_time=0 ms
     )
-    op2 = new ScriptedGridInterface(
+    gi2 = new ScriptedGridInterface(
         node_name="New York",
         command_value=-100,
         command_time=1 ms
@@ -74,13 +74,13 @@ federated reactor {
     gm1 = new SimpleGridManager(node_name="California manager")
     gm2 = new SimpleGridManager(node_name="New York manager")
 
-    op1.command ~> gm1.in1    // California commands -> California manager (local)
-    op2.command ~> gm2.in2    // New York commands   -> New York manager (local)
-    op1.command ~> gm2.in1    // California commands -> New York manager (remote)
-    op2.command ~> gm1.in2    // New York commands   -> California manager (remote)
+    gi1.command ~> gm1.in1    // California commands -> California manager (local)
+    gi2.command ~> gm2.in2    // New York commands   -> New York manager (local)
+    gi1.command ~> gm2.in1    // California commands -> New York manager (remote)
+    gi2.command ~> gm1.in2    // New York commands   -> California manager (remote)
 
-    gm1.out ~> op1.status
-    gm2.out ~> op2.status
+    gm1.out ~> gi1.status
+    gm2.out ~> gi2.status
 }
 ```
 
@@ -104,8 +104,8 @@ Because this is a federated LF program, compilation generates a launcher under `
 
 This launches the runtime infrastructure (RTI) and the four federates:
 
-- `federate__op1`: California operator
-- `federate__op2`: New York operator
+- `federate__gi1`: California grid interface
+- `federate__gi2`: New York grid interface
 - `federate__gm1`: California grid manager
 - `federate__gm2`: New York grid manager
 

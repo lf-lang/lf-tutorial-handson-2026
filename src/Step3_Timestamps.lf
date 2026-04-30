@@ -107,8 +107,8 @@ reactor GridManager {
 // Both gm1 and gm2 will agree on the balance at every timestamp.
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(id=1, node_name="California")
-  op2 = new GridInterface(id=2, node_name="NewYork")
+  gi1 = new GridInterface(id=1, node_name="California")
+  gi2 = new GridInterface(id=2, node_name="NewYork")
 
   // maxwait: physical time to wait before assuming no more messages
   // will arrive at a given logical time or less.
@@ -125,11 +125,11 @@ federated reactor {
   @maxwait(100 ms)
   gm2 = new GridManager()
 
-  op1.command -> gm1.in1  // Logical connections: timestamps are carried and ordering is enforced.
-  op2.command -> gm2.in2
-  op1.command -> gm2.in1  // California -> New York manager
-  op2.command -> gm1.in2  // New York   -> California manager
+  gi1.command -> gm1.in1  // Logical connections: timestamps are carried and ordering is enforced.
+  gi2.command -> gm2.in2
+  gi1.command -> gm2.in1  // California -> New York manager
+  gi2.command -> gm1.in2  // New York   -> California manager
 
-  gm1.out -> op1.status
-  gm2.out -> op2.status
+  gm1.out -> gi1.status
+  gm2.out -> gi2.status
 }

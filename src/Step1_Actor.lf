@@ -78,19 +78,19 @@ reactor SimpleGridManager(node_name: string = "GridManager") {
 
 // ------------------------------------------------------------
 // Top-level federated program.
-// op1/gm1 = Western node (California)
-// op2/gm2 = Eastern node (New York)
+// gi1/gm1 = Western node (California)
+// gi2/gm2 = Eastern node (New York)
 // Physical connections (~>) carry no timestamp coordination.
 // ------------------------------------------------------------
 federated reactor {
   // Exercise 1 setup. Participants can solve the trace exercise by changing
   // these four parameter values, without writing new reactors or timers.
-  op1 = new ScriptedGridInterface(
+  gi1 = new ScriptedGridInterface(
     node_name="California",
     command_value=100,
     command_time=0 ms
   )
-  op2 = new ScriptedGridInterface(
+  gi2 = new ScriptedGridInterface(
     node_name="New York",
     command_value=-100,
     command_time=1 ms
@@ -99,11 +99,11 @@ federated reactor {
   gm1 = new SimpleGridManager(node_name="California manager")
   gm2 = new SimpleGridManager(node_name="New York manager")
 
-  op1.command ~> gm1.in1  // Both nodes receive every command (cross-connected)
-  op2.command ~> gm2.in2
-  op1.command ~> gm2.in1  // California -> New York manager
-  op2.command ~> gm1.in2  // New York   -> California manager
+  gi1.command ~> gm1.in1  // Both nodes receive every command (cross-connected)
+  gi2.command ~> gm2.in2
+  gi1.command ~> gm2.in1  // California -> New York manager
+  gi2.command ~> gm1.in2  // New York   -> California manager
 
-  gm1.out ~> op1.status   // Each operator sees balance from their local manager
-  gm2.out ~> op2.status
+  gm1.out ~> gi1.status   // Each operator sees balance from their local manager
+  gm2.out ~> gi2.status
 }

@@ -115,12 +115,12 @@ reactor QuickDispatch {
 
 // ------------------------------------------------------------
 // Top-level: hybrid federation.
-// Fast path: s1.command_out -> q1.dispatch (dispatch-up only)
-// Slow path: s1.command_out -> gm1.in1 (all commands)
+// Fast path: gs1.command_out -> qd1.dispatch (dispatch-up only)
+// Slow path: gs1.command_out -> gm1.in1 (all commands)
 // ------------------------------------------------------------
 federated reactor {
-  California = new GridServer(null_message_period = 1 s)
-  NewYork = new GridServer(null_message_period = 1 s)
+  gs1 = new GridServer(null_message_period = 1 s)
+  gs2 = new GridServer(null_message_period = 1 s)
 
   @maxwait(forever)
   gm1 = new GridManager()
@@ -128,23 +128,23 @@ federated reactor {
   gm2 = new GridManager()
 
   @maxwait(30 ms)
-  q1 = new QuickDispatch()  // California fast-path handler
+  qd1 = new QuickDispatch()  // California fast-path handler
   @maxwait(30 ms)
-  q2 = new QuickDispatch()  // New York fast-path handler
+  qd2 = new QuickDispatch()  // New York fast-path handler
 
-  California.command_out -> gm1.in1  // Slow path: all commands to both grid managers (cross-connected)
-  NewYork.command_out -> gm2.in2
-  California.command_out -> gm2.in1
-  NewYork.command_out -> gm1.in2
+  gs1.command_out -> gm1.in1  // Slow path: all commands to both grid managers (cross-connected)
+  gs2.command_out -> gm2.in2
+  gs1.command_out -> gm2.in1
+  gs2.command_out -> gm1.in2
 
-  gm1.out -> California.balance_in  // Balance feedback to servers (operator display via slow path)
-  gm2.out -> NewYork.balance_in
+  gm1.out -> gs1.balance_in  // Balance feedback to servers (operator display via slow path)
+  gm2.out -> gs2.balance_in
 
-  California.command_out -> q1.dispatch  // Fast path: local commands -> local QuickDispatch
-  NewYork.command_out -> q2.dispatch
+  gs1.command_out -> qd1.dispatch  // Fast path: local commands -> local QuickDispatch
+  gs2.command_out -> qd2.dispatch
 
-  gm1.out -> q1.true_balance  // QuickDispatch receives authoritative balance from local GridManager
+  gm1.out -> qd1.true_balance  // QuickDispatch receives authoritative balance from local GridManager
   // Fast acknowledgement routed back to operator display
   // (would go to a separate "estimated balance" field in a real UI)
-  gm2.out -> q2.true_balance
+  gm2.out -> qd2.true_balance
 }

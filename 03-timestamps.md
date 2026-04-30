@@ -30,12 +30,12 @@ The only syntactic change in the Lingua Franca program is replacing physical con
 
 ```lf
 // Before (Step 2): physical, unordered
-op1.command ~> gm1.in1
-op1.command ~> gm2.in1
+gi1.command ~> gm1.in1
+gi1.command ~> gm2.in1
 
 // After (Step 3): logical, timestamp-ordered
-op1.command -> gm1.in1
-op1.command -> gm2.in1
+gi1.command -> gm1.in1
+gi1.command -> gm2.in1
 ```
 
 This small change has a profound effect: LF now gives both `gm1` and `gm2` the same logical timestamps and a deterministic rule for processing them, provided the coordination assumptions are met.

@@ -32,27 +32,27 @@ Here is a map of the designs from this tutorial against the consistency-availabi
 
 ```
 CONSISTENCY
-strong ▲  Step 4: conservative coordination
-       │    Strong consistency; may wait forever if an upstream node stops.
-       │
-       │  Step 5 slow path: curtailments
-       │    Same strong-consistency path as Step 4 for high-risk commands.
-       │
-       │             Step 3: finite maxwait
-       │               Strong consistency only while apparent latency <= maxwait;
-       │               otherwise the tardy handler is part of the design.
-       │
-eventual│                                      Step 5 fast path: dispatch-up
-       │                                        Fast response with later reconciliation.
-       │
-       │                                      Step 1: commutative actor
-       │                                        Eventual consistency and maximum availability.
-       │
-none   │                                      Step 2: non-commutative actor
-       │                                        High availability, but possible permanent divergence.
-       │
-       └────────────────────────────────────────────────────────► AVAILABILITY
-          low / may block                                      high / responds fast
+ strong  ▲  Step 4: conservative coordination
+         │    Strong consistency; may wait forever if an upstream node stops.
+         │
+         │  Step 5 slow path: curtailments
+         │    Same strong-consistency path as Step 4 for high-risk commands.
+         │
+         │             Step 3: finite maxwait
+         │               Strong consistency only while apparent latency <= maxwait;
+         │               otherwise the tardy handler is part of the design.
+         │
+eventual │                                      Step 5 fast path: dispatch-up
+         │                                        Fast response with later reconciliation.
+         │
+         │                                      Step 1: commutative actor
+         │                                        Eventual consistency and maximum availability.
+         │
+ none    │                                      Step 2: non-commutative actor
+         │                                        High availability, but possible permanent divergence.
+         │
+         └────────────────────────────────────────────────────────► AVAILABILITY
+            low / may block                                      high / responds fast
 ```
 
 ---

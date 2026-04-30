@@ -44,6 +44,7 @@ jobs:
           no_compile_flag: false
           search_dir: "src"
           compiler_ref: "master"
+          skip_clone: true
 
       - name: Smoke-run generated LF programs
         shell: bash

@@ -3,11 +3,11 @@
  *
  * Two regional control nodes share a grid balance. Commands from either node (positive = dispatch
  * up, negative = curtail) are forwarded to both grid managers via physical connections (~>).
- * Because the operation is commutative (addition), both managers eventually agree on the same balance even if
- * they apply the two commands in different orders.
+ * Because the operation is commutative (addition), both managers eventually agree on the same
+ * balance even if they apply the two commands in different orders.
  *
- * This is the "baseline" design: no business logic that enforces limits. See Step 2 for what happens
- * when we add real-world constraints.
+ * This is the "baseline" design: no business logic that enforces limits. See Step 2 for what
+ * happens when we add real-world constraints.
  */
 target C {
   coordination: decentralized,
@@ -26,15 +26,13 @@ target C {
 // California dispatches +100 MW at 0 ms, and New York curtails -100 MW at 1 ms.
 // ------------------------------------------------------------
 reactor ScriptedGridInterface(
-  node_name: string = "Node",
-  command_value: int = 0,
-  command_time: time = 0 ms
-) {
-  output command: int  // operator issues a dispatch command
-  input status: int  // current grid balance, displayed to operator
+    node_name: string = "Node",
+    command_value: int = 0,
+    command_time: time = 0 ms) {
+  output command: int                // operator issues a dispatch command
+  input status: int                  // current grid balance, displayed to operator
 
-  // One-shot timer: emits command_value once at command_time.
-  timer command_timer(command_time)
+  timer command_timer(command_time)  // One-shot timer: emits command_value once at command_time.
 
   reaction(command_timer) -> command {=
     if (self->command_value >= 0) {
@@ -88,25 +86,17 @@ reactor SimpleGridManager(node_name: string = "GridManager") {
 federated reactor {
   // Exercise 1 setup. Change these four parameter values to try a different
   // pair of commands or command times, without writing new reactors or timers.
-  gi1 = new ScriptedGridInterface(
-    node_name="California",
-    command_value=100,
-    command_time=0 ms
-  )
-  gi2 = new ScriptedGridInterface(
-    node_name="New York",
-    command_value=-100,
-    command_time=1 ms
-  )
+  gi1 = new ScriptedGridInterface(node_name="California", command_value=100, command_time = 0 ms)
+  gi2 = new ScriptedGridInterface(node_name = "New York", command_value=-100, command_time = 1 ms)
 
-  gm1 = new SimpleGridManager(node_name="California manager")
-  gm2 = new SimpleGridManager(node_name="New York manager")
+  gm1 = new SimpleGridManager(node_name = "California manager")
+  gm2 = new SimpleGridManager(node_name = "New York manager")
 
   gi1.command ~> gm1.in1  // Both nodes receive every command (cross-connected)
   gi2.command ~> gm2.in2
   gi1.command ~> gm2.in1  // California -> New York manager
   gi2.command ~> gm1.in2  // New York   -> California manager
 
-  gm1.out ~> gi1.status   // Each operator sees balance from their local manager
+  gm1.out ~> gi1.status  // Each operator sees balance from their local manager
   gm2.out ~> gi2.status
 }

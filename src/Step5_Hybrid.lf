@@ -4,9 +4,9 @@
  * Architecture:
  * - GridServer: wraps operator console + null message heartbeat (as in Step 4)
  * - GridManager instances use maxwait = forever: they maintain the authoritative balance and handle
- *   all commands, including curtailments. This is the slow, strongly consistent path.
+ * all commands, including curtailments. This is the slow, strongly consistent path.
  * - QuickDispatch instances use maxwait = 30 ms: they acknowledge dispatch-up commands on a fast
- *   path and later reconcile with the authoritative balance.
+ * path and later reconcile with the authoritative balance.
  *
  * Exercise focus:
  * - Dispatch-up commands are safe to acknowledge quickly because they cannot make a deficit worse.
@@ -129,11 +129,14 @@ federated reactor {
   gm2 = new GridManager()
 
   @maxwait(30 ms)
-  qd1 = new QuickDispatch()  // California fast-path handler
+  qd1 = new QuickDispatch()
+  // California fast-path handler
   @maxwait(30 ms)
-  qd2 = new QuickDispatch()  // New York fast-path handler
+  qd2 = new QuickDispatch()
 
-  gs1.command_out -> gm1.in1  // Slow path: all commands to both grid managers (cross-connected)
+  // New York fast-path handler
+  // Slow path: all commands to both grid managers (cross-connected)
+  gs1.command_out -> gm1.in1
   gs2.command_out -> gm2.in2
   gs1.command_out -> gm2.in1
   gs2.command_out -> gm1.in2
@@ -145,6 +148,5 @@ federated reactor {
   gs2.command_out -> qd2.dispatch
 
   gm1.out -> qd1.true_balance  // Authoritative balance used to correct the fast-path estimate.
-  // Fast acknowledgements would go to a separate "estimated balance" field in a real UI.
-  gm2.out -> qd2.true_balance
+  gm2.out -> qd2.true_balance  // Fast acknowledgements would go to a separate "estimated balance" field in a real UI.
 }

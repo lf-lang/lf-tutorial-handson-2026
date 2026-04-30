@@ -53,8 +53,8 @@ reactor OperatorConsole(node_name: string = "Node") {
 // the time a manager may wait during quiet periods.
 // ------------------------------------------------------------
 reactor GridServer(null_message_period: time = 1 s) {
-  input balance_in: int  // balance feedback from local GridManager
-  output command_out: int  // real or null command, forwarded to GridManagers
+  input balance_in: int                    // balance feedback from local GridManager
+  output command_out: int                  // real or null command, forwarded to GridManagers
 
   console = new OperatorConsole()
 
@@ -74,9 +74,10 @@ reactor GridServer(null_message_period: time = 1 s) {
 
   // Print balance to the operator display. It is OK if display updates are
   // tardy, so the empty tardy handler treats them like normal messages.
+  // Handle tardy messages like any other message.
   reaction(balance_in) {=
     lf_print("Grid balance = %d MW", balance_in->value);
-  =} tardy // Handle tardy messages like any other message.
+  =} tardy
 }
 
 // ------------------------------------------------------------

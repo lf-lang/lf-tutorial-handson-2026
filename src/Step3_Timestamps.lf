@@ -91,19 +91,7 @@ reactor GridManager {
         }
     }
     lf_set(out, self->balance);
-  =} tardy {=
-    // This handler runs when a message arrives after this federate has already
-    // advanced beyond the message's intended timestamp. Try reducing maxwait
-    // in the main reactor to make this easier to observe.
-    tag_t intended_tag;
-    if (in1->is_present) {
-      intended_tag = in1->intended_tag;
-    } else {
-      intended_tag = in2->intended_tag;
-    }
-    lf_print_warning("[ts=%lld] Tardy message with intended timestamp %lld received at physical time %lld",
-        lf_time_logical_elapsed(), intended_tag.time - lf_time_start(), lf_time_physical_elapsed());
-  =}
+  =} 
 }
 
 // ------------------------------------------------------------
@@ -124,9 +112,9 @@ federated reactor {
   // maxwait = 100 ms: safe for cross-continental links with NTP sync.
   // A smaller maxwait will improve responsiveness, but increase the risk
   // of tardy messages.
-  @maxwait(100 ms)
+  @maxwait(1 us)
   gm1 = new GridManager()
-  @maxwait(100 ms)
+  @maxwait(1 us)
   gm2 = new GridManager()
 
   gi1.command -> gm1.in1  // Logical connections: timestamps are carried and ordering is enforced.

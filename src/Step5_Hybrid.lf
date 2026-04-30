@@ -19,7 +19,7 @@ target C {
   coordination: decentralized
 }
 
-import GridServer from "DistibutedPowerGrid4_ChandyMisra.lf"
+import GridServer from "Step4_Conservative.lf"
 
 preamble {=
   #define MIN_SAFE_BALANCE (-200)

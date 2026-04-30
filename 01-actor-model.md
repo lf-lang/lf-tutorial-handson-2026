@@ -1,8 +1,8 @@
-# Step 1: The Actor Model — Commutative Grid Dispatch
+# Step 1: The Actor Model: Commutative Grid Dispatch
 
 ## The Problem We're Solving
 
-Two control centers — one in California, one in New York — each manage a portion of the national grid. Both maintain a copy of the **grid balance**: a signed integer representing net generation in megawatts (positive = excess, negative = deficit).
+Two control centers, one in California and one in New York, each manage a portion of the national grid. Both maintain a copy of the **grid balance**: a signed integer representing net generation in megawatts (positive = excess, negative = deficit).
 
 Operators at either location can issue dispatch commands:
 - **Dispatch up**: bring more generation online (+MW)
@@ -29,7 +29,7 @@ The squiggly arrows (`~>`) are **physical connections** in Lingua Franca: they u
 
 ## The Code
 
-See [`src/DistibutedPowerGrid1_Actor.lf`](src/DistibutedPowerGrid1_Actor.lf).
+See [`src/Step1_Actor.lf`](src/Step1_Actor.lf).
 
 The core reactor is `SimpleGridManager`:
 
@@ -80,9 +80,9 @@ Each grid manager receives commands from **both** operators and keeps its own co
 
 ---
 
-## Why This Works — Sometimes
+## Why This Works, Sometimes
 
-The operation `balance += value` has a special mathematical property: it is **associative and commutative**. It doesn't matter what order the additions happen — the final sum is always the same.
+The operation `balance += value` has a special mathematical property: it is **associative and commutative**. It doesn't matter what order the additions happen; the final sum is always the same.
 
 This means that even though `gm1` and `gm2` may process the same two commands in different orders, they will eventually agree on the same balance. This property is called **eventual consistency**.
 
@@ -92,15 +92,15 @@ More formally, this design satisfies **ACID 2.0** properties (Helland & Campbell
 - **I**dempotent: TCP guarantees exactly-once delivery, so each command is applied exactly once
 - **D**istributed: state is maintained at multiple nodes
 
-A datatype with these properties is called a **Conflict-Free Replicated Datatype (CRDT)** — one of the simplest CRDTs in existence.
+A datatype with these properties is called a **Conflict-Free Replicated Datatype (CRDT)**. This example is one of the simplest CRDTs in existence.
 
 ---
 
 ## The Catch
 
-This design would allow operators to curtail generation far below zero — a dangerous grid imbalance that could trip protective relays and cause a cascading blackout. 
+This design would allow operators to curtail generation far below zero, creating a dangerous grid imbalance that could trip protective relays and cause a cascading blackout.
 
-Any **business logic** that enforces limits (e.g., "don't curtail if balance is already at its minimum threshold") breaks commutativity — and with it, our consistency guarantees.
+Any **business logic** that enforces limits (e.g., "don't curtail if balance is already at its minimum threshold") breaks commutativity. That also breaks the consistency guarantee from this simple CRDT-style design.
 
 That's what we explore next.
 
@@ -112,8 +112,8 @@ That's what we explore next.
 
 2. What would happen if TCP delivery were *not* guaranteed? How would the ACID 2.0 / CRDT properties need to change?
 
-3. Why does the CAL theorem (Consistency vs. Availability under Latency constraints) apply here? What is the partial order? [[More Reading]](https://arxiv.org/abs/2301.08906)
+3. Now consider the potential effect of network delays in this example. How would network delays affect the consistency of this example?
 
 ---
 
-**Next:** [Step 2 — When Operations Are Non-Commutative](02-inconsistency.md)
+**Next:** [Step 2: When Operations Are Non-Commutative](02-inconsistency.md)

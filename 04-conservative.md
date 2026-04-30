@@ -1,4 +1,4 @@
-# Step 4: Conservative Coordination — Chandy-Misra with Null Messages
+# Step 4: Conservative Coordination: Chandy-Misra with Null Messages
 
 ## The Problem with Finite maxwait
 
@@ -33,17 +33,17 @@ LF supports this method via `maxwait = forever`:
   gm1 = new GridManager()
 ```
 
-With `maxwait = forever`, the grid manager will wait **indefinitely** — until it receives positive evidence from the remote node that no message with tag ≤ `g` is coming.
+With `maxwait = forever`, the grid manager will wait **indefinitely** until it receives positive evidence from the remote node that no message with tag ≤ `g` is coming.
 
 Of course, waiting forever sounds like a bad idea.
-What if the remote `GridInterface` 
-How does that evidence arrive? That's where **null messages** come in.
+What if the remote `GridInterface` has no real commands to send?
+How does the evidence arrive? That's where **null messages** come in.
 
 ---
 
 ## Null Messages
 
-In our grid, commands are sent only when operators issue dispatches or curtailments. If California issues no commands for 10 minutes, New York's manager has no evidence about California's timeline — and blocks forever under `maxwait = forever`.
+In our grid, commands are sent only when operators issue dispatches or curtailments. If California issues no commands for 10 minutes, New York's manager has no evidence about California's timeline and blocks forever under `maxwait = forever`.
 
 The fix: California's node sends **null messages** periodically. A null message says:
 
@@ -78,7 +78,7 @@ reactor GridServer(null_message_period: time = 1 s) {
 }
 ```
 
-The timer fires every second. If no real command has arrived, a `0` is forwarded — which the grid manager interprets as "no change." This lets the grid manager advance its logical time by at least 1 second per second, bounding the wait.
+The timer fires every second. If no real command has arrived, a `0` is forwarded, which the grid manager interprets as "no change." This lets the grid manager advance its logical time by at least 1 second per second, bounding the wait.
 
 ---
 
@@ -89,7 +89,7 @@ The timer fires every second. If no real command has arrived, a `0` is forwarded
 - **Bounded wait**: the maximum wait is ~1 second (the null message period) plus network latency.
 
 **What you give up:**
-- **Availability under failure**: if the California `GridServer` crashes, it stops sending null messages. New York's manager blocks indefinitely — it cannot advance time because it has no proof that California won't send a message.
+- **Availability under failure**: if the California `GridServer` crashes, it stops sending null messages. New York's manager blocks indefinitely because it has no proof that California won't send a message.
 - **Network overhead**: null messages are sent every second even when there are no real commands. For a grid with hundreds of nodes, this multiplies.
 
 This is the CAL theorem in action: **strong consistency costs availability when network behavior is unbounded**.
@@ -98,9 +98,7 @@ This is the CAL theorem in action: **strong consistency costs availability when 
 
 ## Code
 
-See [`src/DistibutedPowerGrid4_ChandyMisra.lf`](src/DistibutedPowerGrid4_ChandyMisra.lf). And here is what our system looks like:
-
-And here is what our system looks like:
+See [`src/Step4_Conservative.lf`](src/Step4_Conservative.lf). Here is what our system looks like:
 
 ![DistibutedPowerGrid4 Chandy & Misra](fig/DistibutedPowerGrid4_ChandyMisra.svg)
 
@@ -121,4 +119,4 @@ Key changes from Step 3:
 
 ---
 
-**Next:** [Step 5 — Hybrid Design: Fast-Path for Safe Commands](05-hybrid.md)
+**Next:** [Step 5: Hybrid Design: Fast-Path for Safe Commands](05-hybrid.md)

@@ -88,6 +88,45 @@ Each grid manager receives commands from **both** operators and keeps its own co
 
 ---
 
+## Running Step 1
+
+Compile the LF program with `lfc`:
+
+```bash
+lfc src/Step1_Actor.lf
+```
+
+Because this is a federated LF program, compilation generates a launcher under `bin/` named after the source file:
+
+```bash
+./bin/Step1_Actor
+```
+
+This launches the runtime infrastructure (RTI) and the four federates:
+
+- `federate__op1`: California operator
+- `federate__op2`: New York operator
+- `federate__gm1`: California grid manager
+- `federate__gm2`: New York grid manager
+
+To see each federate in its own terminal pane, run the launcher with `--tmux`:
+
+```bash
+./bin/Step1_Actor --tmux
+```
+
+If `tmux` is not installed, install it first, for example with `brew install tmux` on macOS or `sudo apt-get install tmux` on Ubuntu.
+
+Inside the tmux view, the top pane is the RTI and the other panes are the federates. The program has a built-in timeout, so it should finish on its own. To leave and close the entire tmux session after the run, press `Ctrl+B`, then `D`. If you need to stop a still-running federation, press `Ctrl+C` in the RTI pane, then detach with `Ctrl+B`, then `D`.
+
+Example tmux run:
+
+![Step 1 tmux run](assets/step1-actor-tmux.png)
+
+In the screenshot, the managers receive the California and New York commands in different orders, but both managers end with balance `0 MW`.
+
+---
+
 ## Why This Works, Sometimes
 
 The operation `balance += value` has a special mathematical property: it is **associative and commutative**. It doesn't matter what order the additions happen; the final sum is always the same.

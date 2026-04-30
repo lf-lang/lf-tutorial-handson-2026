@@ -35,8 +35,8 @@ The core reactor is `SimpleGridManager`:
 
 ```lf
 reactor SimpleGridManager {
-  input in1: int   // commands arriving from local operator
-  input in2: int   // commands arriving from remote operator
+  input in1: int   // commands arriving from California
+  input in2: int   // commands arriving from New York
   output out: int  // current balance reported back to local operator
 
   state balance: int = 0
@@ -44,12 +44,12 @@ reactor SimpleGridManager {
   reaction(in1, in2) -> out {=
     if (in1->is_present) {
         self->balance += in1->value;
-        lf_print("Local command %+d MW -> balance now %d MW",
+        lf_print("California command %+d MW -> balance now %d MW",
                  in1->value, self->balance);
     }
     if (in2->is_present) {
         self->balance += in2->value;
-        lf_print("Remote command %+d MW -> balance now %d MW",
+        lf_print("New York command %+d MW -> balance now %d MW",
                  in2->value, self->balance);
     }
     lf_set(out, self->balance);
@@ -57,14 +57,22 @@ reactor SimpleGridManager {
 }
 ```
 
-The top-level federated program wires everything together:
+The top-level federated program wires everything together. For the first exercise, the operator consoles are scripted with parameters, so you can change the trace without writing new reactors or timers:
 
 ```lf
 federated reactor {
-    op1 = new GridInterface(...)   // California operator console
-    op2 = new GridInterface(...)   // New York operator console
-    gm1 = new SimpleGridManager()
-    gm2 = new SimpleGridManager()
+    op1 = new ScriptedGridInterface(
+        node_name="California",
+        command_value=100,
+        command_time=0 ms
+    )
+    op2 = new ScriptedGridInterface(
+        node_name="New York",
+        command_value=-100,
+        command_time=1 ms
+    )
+    gm1 = new SimpleGridManager(node_name="California manager")
+    gm2 = new SimpleGridManager(node_name="New York manager")
 
     op1.command ~> gm1.in1    // California commands -> California manager (local)
     op2.command ~> gm2.in2    // New York commands   -> New York manager (local)
@@ -108,7 +116,7 @@ That's what we explore next.
 
 ## Exercises
 
-1. Trace through a scenario: California dispatches +100 MW at time 0, New York curtails −100 MW at time 1 ms. Show that both grid managers reach the same balance regardless of message arrival order.
+1. Trace through a scenario: California dispatches +100 MW at time 0 ms, New York curtails −100 MW at time 1 ms. Show that both grid managers reach the same balance regardless of message arrival order.
 
 2. What would happen if TCP delivery were *not* guaranteed? How would the ACID 2.0 / CRDT properties need to change?
 

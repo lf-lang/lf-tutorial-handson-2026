@@ -1,6 +1,6 @@
 # LF Tutorial @ CPS-IoT Week 2026 - Hands-on Session: Logical Time in Distributed Systems: A Power Grid Tutorial
 
-> **Based on:** ["Consistency vs. Availability in Distributed Cyber-Physical Systems" by Lee et al. (2023)](https://arxiv.org/abs/2301.08906)
+> **Based on:** ["Consistency vs. Availability in Distributed Cyber-Physical Systems" by Lee et al. (2023)](https://dl.acm.org/doi/10.1145/3609119)
 > **Domain:** Distributed power grid control using Lingua Franca
 
 ---
@@ -9,7 +9,7 @@
 
 Modern power grids are distributed cyber-physical systems. Generation, transmission, and load are spread across vast geographic areas. Multiple control nodes must coordinate in real time, and they must **agree** on the state of the grid even when separated by hundreds of milliseconds of network latency.
 
-This tutorial takes you through a series of progressively more sophisticated designs for a distributed grid controller, using the [Lingua Franca (LF)](https://lf-lang.org/) coordination language. Each design exposes a new problem and motivates the next solution, culminating in a system that achieves **eventual consistency** while bounding unavailability to a manageable risk.
+This tutorial takes you through a series of progressively more sophisticated designs for a distributed grid controller, using the [Lingua Franca (LF)](https://lf-lang.org/) coordination language. Each design exposes a new problem and motivates the next solution, ending with a hybrid design that separates fast, low-risk commands from slower, strongly consistent decisions.
 
 The design journey mirrors the consistency-vs-availability tradeoff captured by the **CAL theorem**: stronger consistency requires more waiting, more assumptions about latency, or carefully chosen fault handling. Each design makes an explicit, application-specific compromise.
 
@@ -48,9 +48,10 @@ This follows the paper's focus on shared physical state in real-time systems: in
 - **Physical connections** (`~>`) vs **logical connections** (`->`) in LF
 - **Eventual consistency** via ACID 2.0 / CRDTs
 - **Logical timestamps** and the notion of *logical time*
-- **STA** (Safe To Advance) and **STAA** (Safe To Assume Absent) parameters
+- **`maxwait`** as a practical safe-to-advance bound
+- **Tardy handlers** for messages that arrive too late
 - **Conservative coordination** (Chandy-Misra null messages)
-- **The CAL theorem**: Consistency–Availability–Latency tradeoff
+- **The CAL theorem**: consistency, availability, and latency tradeoff
 - **Fault handlers** for bounded unavailability
 
 ---
@@ -60,6 +61,8 @@ This follows the paper's focus on shared physical state in real-time systems: in
 - Basic familiarity with concurrent programming concepts
 - Some exposure to distributed systems (helpful but not required)
 - Lingua Franca installed: see [lf-lang.org](https://lf-lang.org/docs/installation)
+- A C build toolchain and CMake, since the examples use `target C`
+- `tmux` if you want to run federates in separate terminal panes
 
 ---
 
@@ -83,23 +86,44 @@ After creation, clone **your** new repository locally and follow [Running the Co
 
 ## Running the Code
 
-Each `.lf` file in the `src/` directory can be compiled and run with:
+All `.lf` files in this repository are federated LF programs. Compile an example with `lfc`:
 
 ```bash
 lfc src/<filename>.lf
-./bin/<program_name>
 ```
 
-For federated programs (Steps 3 onward), each federate runs as a separate process. The LF compiler generates a launch script:
+For example:
 
 ```bash
-lfc src/<filename>.lf
-./bin/<program_name>_launch.sh
+lfc src/Step1_Actor.lf
 ```
 
-# References
+Compilation generates a launcher under `bin/` with the same base name as the source file, without the `.lf` extension. For `src/Step1_Actor.lf`, the launcher is:
 
-[1] E. A. Lee, R. Akella, S. Bateni, S. Lin, M. Lohstroh, and C. Menard, "Consistency vs. Availability in Distributed Cyber-Physical Systems," arXiv:2301.08906, 2023. [Online]. Available: https://arxiv.org/abs/2301.08906
+```bash
+./bin/Step1_Actor
+```
+
+That launcher starts the runtime infrastructure (RTI) and all federates for the example. There is no `_launch.sh` script in this repository.
+
+To run a different step, replace the filename and launcher name:
+
+```bash
+lfc src/Step5_Hybrid.lf
+./bin/Step5_Hybrid
+```
+
+The launcher also supports tmux panes, which can make federated output easier to read:
+
+```bash
+./bin/Step1_Actor --tmux
+```
+
+Step 1 exits on its own because it has a short timeout. Other steps may keep running until you stop them with `Ctrl+C` in the launcher or RTI pane.
+
+## References
+
+[1] E. A. Lee, R. Akella, S. Bateni, S. Lin, M. Lohstroh, and C. Menard, "Consistency vs. Availability in Distributed Cyber-Physical Systems," arXiv:2301.08906, 2023. [Online]. Available: https://dl.acm.org/doi/10.1145/3609119
 
 [2] T. Zhao, Z. Li and Z. Ding, "Consensus-Based Distributed Optimal Energy Management With Less Communication in a Microgrid," in IEEE Transactions on Industrial Informatics, vol. 15, no. 6, pp. 3356-3367, June 2019, doi: 10.1109/TII.2018.2871562.
 

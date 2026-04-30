@@ -30,12 +30,12 @@ The only syntactic change in the Lingua Franca program is replacing physical con
 
 ```lf
 // Before (Step 2): physical, unordered
-op1.command ~> gm1.in1
-op1.command ~> gm2.in1
+gi1.command ~> gm1.in1
+gi1.command ~> gm2.in1
 
 // After (Step 3): logical, timestamp-ordered
-op1.command -> gm1.in1
-op1.command -> gm2.in1
+gi1.command -> gm1.in1
+gi1.command -> gm2.in1
 ```
 
 This small change has a profound effect: LF now gives both `gm1` and `gm2` the same logical timestamps and a deterministic rule for processing them, provided the coordination assumptions are met.
@@ -46,7 +46,7 @@ This small change has a profound effect: LF now gives both `gm1` and `gm2` the s
 
 See [`src/Step3_Timestamps.lf`](src/Step3_Timestamps.lf). And here is what our system looks like:
 
-![DistributedPowerGrid3 TimeStamped](fig/DistibutedPowerGrid3_TimeStamped.svg)
+![Step 3 timestamped diagram](fig/Step3_Timestamps.svg)
 
 
 Key differences from Step 2:
@@ -108,9 +108,22 @@ For two nodes in California and New York (cross-continental latency ~60–80 ms)
 Tardy events, if not handled, result in messages like this:
 
 ```
-Fed 1 (op2_main): ERROR: STP violation occurred in a trigger to reaction 3, and there is no handler.
+Fed 3 (gm2_main): ERROR: STP violation occurred in a trigger to reaction 1, and there is no handler.
 **** Invoking reaction at the wrong tag!
 ```
+
+To intentionally trigger this error in [`src/Step3_Timestamps.lf`](src/Step3_Timestamps.lf):
+
+1. Temporarily remove the `tardy {= ... =}` block attached to the `GridManager` reaction.
+2. Make both `GridManager` `@maxwait` values very small, for example `@maxwait(1 us)` or `@maxwait(0 ms)`.
+3. Compile and run:
+
+   ```bash
+   lfc src/Step3_Timestamps.lf
+   ./bin/Step3_Timestamps
+   ```
+
+With a very small `maxwait`, a grid manager may advance logical time before an earlier remote message arrives. Without a tardy handler, the runtime reports the STP violation. After observing the error, restore the `tardy` block and return `maxwait` to `100 ms`.
 
 Tardy events may be handled with a **tardy handler**.
 For example, we can add the following to the `GridManager` reaction:

@@ -44,7 +44,7 @@ reactor InconsistentGridManager {
 
 Here is what our system looks like:
 
-![DistibutedPowerGrid2_Inconsistency](fig/DistibutedPowerGrid2_Inconsistency.svg)
+![Step 2 inconsistency diagram](fig/Step2_Inconsistency.svg)
 
 
 ---

@@ -2,26 +2,26 @@
  * Step 2: Inconsistent Grid Manager
  *
  * We add real business logic: curtailment commands that would push the balance below a minimum safe
- * threshold are rejected. This breaks commutativity — and causes the two grid managers to
- * permanently disagree on the balance when simultaneous commands arrive in different orders.
+ * threshold are rejected. This breaks commutativity and can cause the two grid managers to disagree
+ * permanently when they see the same commands in different orders.
  *
- * This program demonstrates the problem. Run it and observe that gm1 and gm2 report different
- * balances after concurrent commands. The next step (03_grid_timestamped.lf) fixes this with
- * logical time.
+ * This program demonstrates the problem. Run it and watch for gm1 and gm2 to report different
+ * balances after concurrent commands. Step3_Timestamps.lf fixes this by using logical time.
  */
 target C {
   coordination: decentralized
 }
 
-// Minimum safe grid balance in MW.
-// Below this, curtailment risks tripping protective relays.
+// Minimum safe grid balance in MW. A curtailment that would go below this
+// threshold is rejected, which makes the operation order-dependent.
 preamble {=
   #define MIN_SAFE_BALANCE (-200)
 =}
 
 // ------------------------------------------------------------
 // GridInterface: operator console for one regional node.
-// Sends a sequence of dispatch (+) and curtailment (-) commands.
+// Sends a repeating sequence of dispatch (+) and curtailment (-) commands.
+// The timers are intentionally offset so messages from the two nodes can race.
 // ------------------------------------------------------------
 reactor GridInterface(id: int = 0, node_name: string = "Node") {
   output command: int
@@ -46,38 +46,41 @@ reactor GridInterface(id: int = 0, node_name: string = "Node") {
 }
 
 // ------------------------------------------------------------
-// InconsistentGridManager: applies dispatch commands with a
-// safety check. Non-commutative -> inconsistency under concurrent
-// commands with nondeterministic message ordering.
+// InconsistentGridManager: applies each command only if it passes the safety
+// check. This is no longer commutative: a dispatch followed by a curtailment
+// may be accepted, while the same curtailment before the dispatch may be
+// rejected.
 // ------------------------------------------------------------
 reactor InconsistentGridManager(node_id: int = 1) {
-  input in1: int  // commands from local operator
-  input in2: int  // commands from remote operator
+  input in1: int  // commands from California
+  input in2: int  // commands from New York
   output out: int
 
   state balance: int = 0
 
   reaction(in1, in2) -> out {=
-    // Process in1 first (local priority, but arbitrary under actor semantics)
+    // If both inputs are present in the same reaction, LF executes this code
+    // deterministically. The actor-style nondeterminism comes from when each
+    // physical connection delivers its message to each manager.
     if (in1->is_present) {
         if (self->balance + in1->value >= MIN_SAFE_BALANCE) {
             self->balance += in1->value;
             lf_print("GM%d: applied local command %+d MW -> balance %d MW",
                      self->node_id, in1->value, self->balance);
         } else {
-            lf_print("GM%d: IMBALANCE EVENT — rejected local curtailment %d MW "
+            lf_print("GM%d: IMBALANCE EVENT: rejected local curtailment %d MW "
                      "(balance %d MW would breach %d MW threshold)",
                      self->node_id, in1->value, self->balance, MIN_SAFE_BALANCE);
         }
     }
-    // Process in2 second (remote, arrives after local in this handler)
+    // This second check sees the balance left by the first check above.
     if (in2->is_present) {
         if (self->balance + in2->value >= MIN_SAFE_BALANCE) {
             self->balance += in2->value;
             lf_print("GM%d: applied remote command %+d MW -> balance %d MW",
                      self->node_id, in2->value, self->balance);
         } else {
-            lf_print("GM%d: IMBALANCE EVENT — rejected remote curtailment %d MW "
+            lf_print("GM%d: IMBALANCE EVENT: rejected remote curtailment %d MW "
                      "(balance %d MW would breach %d MW threshold)",
                      self->node_id, in2->value, self->balance, MIN_SAFE_BALANCE);
         }
@@ -87,24 +90,23 @@ reactor InconsistentGridManager(node_id: int = 1) {
 }
 
 // ------------------------------------------------------------
-// Top-level: demonstrates the inconsistency.
-// Both gm1 and gm2 start at balance=0, but after several rounds
-// of concurrent commands with nondeterministic ordering, they will
-// diverge and never re-converge (without a correction mechanism).
+// Top-level: demonstrates the inconsistency. Both managers receive the same
+// commands, but physical connections can deliver them in different orders at
+// gm1 and gm2. Once their balances diverge, this program has no repair step.
 // ------------------------------------------------------------
 federated reactor {
-  op1 = new GridInterface(id=1, node_name="California")
-  op2 = new GridInterface(id=2, node_name="NewYork")
+  gi1 = new GridInterface(id=1, node_name="California")
+  gi2 = new GridInterface(id=2, node_name="NewYork")
   gm1 = new InconsistentGridManager(node_id=1)
   gm2 = new InconsistentGridManager(node_id=2)
 
-  // Cross-connected: each manager receives commands from both operators.
-  // Physical connections (~>) impose no timestamp ordering.
-  op1.command ~> gm1.in1
-  op2.command ~> gm2.in2
-  op1.command ~> gm2.in1
-  op2.command ~> gm1.in2
+  // Cross-connected: each manager receives commands from both grid interfaces.
+  // Physical connections (~>) impose no shared timestamp order across links.
+  gi1.command ~> gm1.in1
+  gi2.command ~> gm2.in2
+  gi1.command ~> gm2.in1
+  gi2.command ~> gm1.in2
 
-  gm1.out ~> op1.status
-  gm2.out ~> op2.status
+  gm1.out ~> gi1.status
+  gm2.out ~> gi2.status
 }

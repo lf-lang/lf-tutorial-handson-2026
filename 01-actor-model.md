@@ -20,7 +20,7 @@ In the classical actor model, components communicate via **asynchronous message 
 
 Here is what our system looks like:
 
-![DistibutedPowerGrid Actor](fig/DistibutedPowerGrid1_Actor.svg)
+![Step 1 actor model diagram](fig/Step1_Actor.svg)
 
 
 The squiggly arrows (`~>`) are **physical connections** in Lingua Franca: they use TCP for reliable in-order delivery on each link, but carry **no timestamp coordination** between links. Messages from California and New York may arrive at either grid manager in any order.
@@ -35,8 +35,8 @@ The core reactor is `SimpleGridManager`:
 
 ```lf
 reactor SimpleGridManager {
-  input in1: int   // commands arriving from local operator
-  input in2: int   // commands arriving from remote operator
+  input in1: int   // commands arriving from California
+  input in2: int   // commands arriving from New York
   output out: int  // current balance reported back to local operator
 
   state balance: int = 0
@@ -44,12 +44,12 @@ reactor SimpleGridManager {
   reaction(in1, in2) -> out {=
     if (in1->is_present) {
         self->balance += in1->value;
-        lf_print("Local command %+d MW -> balance now %d MW",
+        lf_print("California command %+d MW -> balance now %d MW",
                  in1->value, self->balance);
     }
     if (in2->is_present) {
         self->balance += in2->value;
-        lf_print("Remote command %+d MW -> balance now %d MW",
+        lf_print("New York command %+d MW -> balance now %d MW",
                  in2->value, self->balance);
     }
     lf_set(out, self->balance);
@@ -57,26 +57,73 @@ reactor SimpleGridManager {
 }
 ```
 
-The top-level federated program wires everything together:
+The top-level federated program wires everything together. For the first exercise, the operator consoles are scripted with parameters, so you can change the trace without writing new reactors or timers:
 
 ```lf
 federated reactor {
-    op1 = new GridInterface(...)   // California operator console
-    op2 = new GridInterface(...)   // New York operator console
-    gm1 = new SimpleGridManager()
-    gm2 = new SimpleGridManager()
+    gi1 = new ScriptedGridInterface(
+        node_name="California",
+        command_value=100,
+        command_time=0 ms
+    )
+    gi2 = new ScriptedGridInterface(
+        node_name="New York",
+        command_value=-100,
+        command_time=1 ms
+    )
+    gm1 = new SimpleGridManager(node_name="California manager")
+    gm2 = new SimpleGridManager(node_name="New York manager")
 
-    op1.command ~> gm1.in1    // California commands -> California manager (local)
-    op2.command ~> gm2.in2    // New York commands   -> New York manager (local)
-    op1.command ~> gm2.in1    // California commands -> New York manager (remote)
-    op2.command ~> gm1.in2    // New York commands   -> California manager (remote)
+    gi1.command ~> gm1.in1    // California commands -> California manager (local)
+    gi2.command ~> gm2.in2    // New York commands   -> New York manager (local)
+    gi1.command ~> gm2.in1    // California commands -> New York manager (remote)
+    gi2.command ~> gm1.in2    // New York commands   -> California manager (remote)
 
-    gm1.out ~> op1.status
-    gm2.out ~> op2.status
+    gm1.out ~> gi1.status
+    gm2.out ~> gi2.status
 }
 ```
 
 Each grid manager receives commands from **both** operators and keeps its own copy of the balance. The local operator console gets the balance back from its local manager.
+
+---
+
+## Running Step 1
+
+Compile the LF program with `lfc`:
+
+```bash
+lfc src/Step1_Actor.lf
+```
+
+Because this is a federated LF program, compilation generates a launcher under `bin/` named after the source file:
+
+```bash
+./bin/Step1_Actor
+```
+
+This launches the runtime infrastructure (RTI) and the four federates:
+
+- `federate__gi1`: California grid interface
+- `federate__gi2`: New York grid interface
+- `federate__gm1`: California grid manager
+- `federate__gm2`: New York grid manager
+
+To see each federate in its own terminal pane, run the launcher with `--tmux`:
+
+```bash
+./bin/Step1_Actor --tmux
+```
+
+If `tmux` is not installed, install it first, for example with `brew install tmux` on macOS or `sudo apt-get install tmux` on Ubuntu.
+
+Inside the tmux view, the top pane is the RTI and the other panes are the federates. The program has a built-in timeout, so it should finish on its own. To leave and close the entire tmux session after the run, press `Ctrl+B`, then `D`. If you need to stop a still-running federation, press `Ctrl+C` in the RTI pane, then detach with `Ctrl+B`, then `D`.
+
+Example tmux run:
+
+![Step 1 tmux run](assets/step1-actor-tmux.png)
+
+In the screenshot, the managers receive the California and New York commands in different orders, but both managers end with balance `0 MW`.
 
 ---
 
@@ -108,7 +155,7 @@ That's what we explore next.
 
 ## Exercises
 
-1. Trace through a scenario: California dispatches +100 MW at time 0, New York curtails −100 MW at time 1 ms. Show that both grid managers reach the same balance regardless of message arrival order.
+1. Trace through a scenario: California dispatches +100 MW at time 0 ms, New York curtails −100 MW at time 1 ms. Show that both grid managers reach the same balance regardless of message arrival order.
 
 2. What would happen if TCP delivery were *not* guaranteed? How would the ACID 2.0 / CRDT properties need to change?
 

@@ -99,7 +99,30 @@ lfc src/<filename>.lf
 
 # References
 
-[1] E. A. Lee, "Logical Time in Actor Systems," UC Berkeley, 2025. [Online]. Available: https://ptolemy.berkeley.edu/~eal/publications/LeeTimeAghaFestschriftPreprint2025.pdf
+```bash
+./bin/Step1_Actor
+```
+
+That launcher starts the runtime infrastructure (RTI) and all federates for the example. There is no `_launch.sh` script in this repository.
+
+To run a different step, replace the filename and launcher name:
+
+```bash
+lfc src/Step5_Hybrid.lf
+./bin/Step5_Hybrid
+```
+
+The launcher also supports tmux panes, which can make federated output easier to read:
+
+```bash
+./bin/Step1_Actor --tmux
+```
+
+Step 1 exits on its own because it has a short timeout. Other steps may keep running until you stop them with `Ctrl+C` in the launcher or RTI pane.
+
+## References
+
+[1] E. A. Lee, R. Akella, S. Bateni, S. Lin, M. Lohstroh, and C. Menard, "Consistency vs. Availability in Distributed Cyber-Physical Systems," in ACM Transactions on Embedded Computing Systems, Vol. 22, No. 5s, October 2023. [Online]. Available: https://dl.acm.org/doi/10.1145/3609119
 
 [2] T. Zhao, Z. Li and Z. Ding, "Consensus-Based Distributed Optimal Energy Management With Less Communication in a Microgrid," in IEEE Transactions on Industrial Informatics, vol. 15, no. 6, pp. 3356-3367, June 2019, doi: 10.1109/TII.2018.2871562.
 

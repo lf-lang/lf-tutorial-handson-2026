@@ -24,7 +24,7 @@ The `GridManager` (from Step 4, with `maxwait = forever`) continues to maintain 
 
 And here is what our system looks like:
 
-![DistibutedPowerGrid5 Hybrid](fig/DistibutedPowerGrid5_Hybrid.svg)
+![Step 5 hybrid design diagram](fig/Step5_Hybrid.svg)
 ---
 
 ## The `QuickDispatch` Reactor

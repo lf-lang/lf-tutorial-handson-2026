@@ -20,7 +20,7 @@ In the classical actor model, components communicate via **asynchronous message 
 
 Here is what our system looks like:
 
-![DistibutedPowerGrid Actor](fig/DistibutedPowerGrid1_Actor.svg)
+![Step 1 actor model diagram](fig/Step1_Actor.svg)
 
 
 The squiggly arrows (`~>`) are **physical connections** in Lingua Franca: they use TCP for reliable in-order delivery on each link, but carry **no timestamp coordination** between links. Messages from California and New York may arrive at either grid manager in any order.

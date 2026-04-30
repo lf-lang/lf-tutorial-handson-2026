@@ -100,7 +100,7 @@ This is the CAL theorem in action: **strong consistency costs availability when 
 
 See [`src/Step4_Conservative.lf`](src/Step4_Conservative.lf). Here is what our system looks like:
 
-![DistibutedPowerGrid4 Chandy & Misra](fig/DistibutedPowerGrid4_ChandyMisra.svg)
+![Step 4 conservative coordination diagram](fig/Step4_Conservative.svg)
 
 Key changes from Step 3:
 - `GridInterface` is wrapped in `GridServer`, which adds a null-message timer.

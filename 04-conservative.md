@@ -111,11 +111,11 @@ Key changes from Step 3:
 
 ## Exercises
 
-1. Trace through a scenario where California's GridServer crashes at time T = 30 s. What happens to New York's grid manager? What happens to California's grid manager?
+1. Add a `QuickDispatch` reactor (`@maxwait(30 ms)`) that handles only positive commands and acknowledges immediately, while `GridManager` (`maxwait = forever`) remains authoritative. Wire `GridManager`'s balance output back into `QuickDispatch`. Run a +100 MW dispatch — how do the two acknowledgement times compare?
 
-2. If we reduce the null message period from 1 s to 100 ms, how does this affect (a) wait time, (b) network overhead, and (c) resilience to node failure?
+2. Issue a curtailment (−80 MW). Confirm `QuickDispatch` ignores it and only `GridManager` applies it. Why is routing curtailments exclusively through the slow path the right design decision?
 
-3. Could we use `maxwait = forever` with *no* null messages at all? Under what circumstances would the system make progress?
+3. Add a `tardy` handler to `QuickDispatch` for when `true_balance` arrives late. What should it do if the stale estimate it used turns out to be wrong?
 
 ---
 

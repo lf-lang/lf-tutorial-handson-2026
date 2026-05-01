@@ -155,11 +155,11 @@ That's what we explore next.
 
 ## Exercises
 
-1. Trace through a scenario: California dispatches +100 MW at time 0 ms, New York curtails −100 MW at time 1 ms. Show that both grid managers reach the same balance regardless of message arrival order.
+1. Modify `GridManager` to reject any command that would push `balance` below **−200 MW**, logging a warning instead. 
 
-2. What would happen if TCP delivery were *not* guaranteed? How would the ACID 2.0 / CRDT properties need to change?
+2. Run a scenario where both managers start at `balance = −150 MW`, California curtails −80 MW, and New York dispatches +100 MW simultaneously. What does each manager report?
 
-3. Now consider the potential effect of network delays in this example. How would network delays affect the consistency of this example?
+3. Swap the message arrival order from Exercise 2. Do `gm1` and `gm2` agree on the final balance? Explain why the result differs and which ACID 2.0 property is violated.
 
 ---
 

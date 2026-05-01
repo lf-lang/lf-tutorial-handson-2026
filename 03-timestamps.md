@@ -174,11 +174,7 @@ The waiting introduced by timestamps is not a bug; it is **fundamental**. The **
 
 ## Exercises
 
-1. With `maxwait = 100 ms` and cross-continental latency of 75 ms, what is the maximum clock synchronization error you can tolerate and still guarantee correct ordering?
-
-2. If you reduced maxwait to 20 ms to improve responsiveness, what would happen if a message arrived 30 ms late? What would the LF runtime do?
-
-3. Revisit the inconsistency scenario from Step 2 (balance = −150 MW, simultaneous curtail and dispatch). Trace through the execution with timestamps. Do both grid managers reach the same balance?
+1. Change `@maxwait` on both managers to `forever` and rerun. Does the program make progress? Why or why not?
 
 ---
 

@@ -114,10 +114,8 @@ This tutorial focused on the core consistency mechanisms. The paper also discuss
 
 ## Final Exercises
 
-1. **Full scenario trace**: Starting from balance = −100 MW at both nodes, trace the complete execution of Step 5's hybrid design through: (a) California dispatches +200 MW, (b) New York curtails −150 MW (simultaneous), (c) California curtails −80 MW (2 seconds later). Which commands use the fast path? What does each GridManager report after each event?
+1. In `Step3_Timestamps.lf`, change one logical connection to `gi1.command -> gm1.in1 after 50 ms`. Rerun the simultaneous dispatch/curtailment scenario. Does consistency hold? How does the `after` delay change the operator wait time?
 
-2. **maxwait calibration**: You deploy the Step 3 design between London and Tokyo (network latency ~250 ms, NTP error ~50 ms). What maxwait should you choose? What is the resulting unavailability (operator wait time) for curtailment commands?
+2. In `Step5_Hybrid.lf`, set `QuickDispatch` `@maxwait` to 200 ms and `GridManager` `@maxwait` to `forever`. Run a curtailment and a dispatch simultaneously. Which path handles each, and what do the two acknowledgement timestamps tell you about the consistency-availability tradeoff?
 
-3. **Three-node design**: How would you modify Step 5's `GridManager` to require agreement from 2 out of 3 nodes instead of 2 out of 2? What should the fault handler do when a node disagrees with the majority view?
-
-4. **Real-world mapping**: Map the design from Step 5 onto a real grid control architecture. What does `GridServer` correspond to? What does `GridManager` correspond to? What role does the `QuickDispatch` fast path play in existing SCADA/EMS systems?
+3. Add a third federate `gm3` to `Step4_Conservative.lf` (copy of `gm2`). Observe that `GridManager` with `maxwait = forever` still reaches the same balance on all three nodes. What additional null-message wiring did you need?

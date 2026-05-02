@@ -98,11 +98,11 @@ See [`src/Step5_Hybrid.lf`](src/Step5_Hybrid.lf).
 
 ## Exercises
 
-1. Suppose an operator issues a dispatch of +50 MW on the fast path. Their display shows a new balance of +50 MW. Two seconds later, the authoritative balance arrives and shows +150 MW (because a remote operator also dispatched +100 MW). Is this a problem? How would you handle the discrepancy in the UI?
+1. Add `after 50 ms` to the `true_balance -> QuickDispatch.true_balance` connection. Does the tardy handler fire more often? How does the `after` delay shift the point where the fast-path estimate gets corrected?
 
-2. Design a `QuickCurtail` reactor that allows small curtailments (up to −50 MW) on a fast path. What maxwait values would you choose? What does the fault handler do when true_balance arrives late and shows the estimate was wrong?
+2. Add a `state fault_count: int = 0` to `QuickDispatch` and increment it in the `tardy` handler. Print the running count after each tardy event. Run with `@maxwait(10 ms)` against a 75 ms simulated delay. How quickly does the fault count grow?
 
-3. The fault handler for QuickDispatch logs a warning. In a real grid, what automated action might it trigger (e.g., alert, re-dispatch, trip breaker)?
+3. Add a `QuickCurtail` reactor (mirroring `QuickDispatch`) that fast-paths small curtailments up to −20 MW with `@maxwait(30 ms)`. What should its `tardy` handler do when `true_balance` arrives late and reveals the curtailment pushed the balance below the threshold?
 
 ---
 

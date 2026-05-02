@@ -113,11 +113,8 @@ The single-node approach defeats the purpose of having two control centers. So w
 
 ## Exercises
 
-1. Construct a scenario where `gm1` logs an imbalance event but `gm2` does not, starting from `balance = -180 MW`. What does this mean operationally for a real grid?
+1. In `Step2_Inconsistency.lf`, replace every `~>` with `->` and add `@maxwait(100 ms)` to both `gm1` and `gm2`. Re-run the inconsistency scenario (`balance = −150 MW`, simultaneous curtail −80 MW and dispatch +100 MW). Do the managers now agree?
 
-2. Would the inconsistency be resolved if the network always delivered messages in the order they were sent globally (i.e., a totally ordered broadcast)? What would be the cost?
-
-3. Fixing commutativity "loses most of these nice properties." List the specific ACID 2.0 properties that are lost when we add the threshold check.
 
 ---
 

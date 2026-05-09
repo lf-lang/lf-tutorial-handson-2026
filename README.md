@@ -1,6 +1,6 @@
 # LF Tutorial @ CPS-IoT Week 2026 - Hands-on Session: Logical Time in Distributed Systems: A Power Grid Tutorial
 
-> **Based on:** ["Consistency vs. Availability in Distributed Cyber-Physical Systems" by Lee et al. (2023)](https://dl.acm.org/doi/10.1145/3609119)
+> **Based on:** ["Logical time in actor systems" by Edward A. Lee (2025)](https://ptolemy.berkeley.edu/~eal/publications/LeeTimeAghaFestschriftPreprint2025.pdf)
 > **Domain:** Distributed power grid control using Lingua Franca
 
 ---

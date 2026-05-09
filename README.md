@@ -1,13 +1,14 @@
 # LF Tutorial @ CPS-IoT Week 2026 - Hands-on Session: Logical Time in Distributed Systems: A Power Grid Tutorial
 
 > **Based on:** ["Logical time in actor systems" by Edward A. Lee (2025)](https://ptolemy.berkeley.edu/~eal/publications/LeeTimeAghaFestschriftPreprint2025.pdf)
+> 
 > **Domain:** Distributed power grid control using Lingua Franca
 
 ---
 
 ## What This Tutorial Is About
 
-Modern power grids are distributed cyber-physical systems. Generation, transmission, and load are spread across vast geographic areas. Multiple control nodes must coordinate in real time, and they must **agree** on the state of the grid even when separated by hundreds of milliseconds of network latency.
+Modern power grids are distributed cyber-physical systems (CPS). Generation, transmission, and load are spread across vast geographic areas. Multiple control nodes must coordinate in real time, and they must **agree** on the state of the grid even when separated by hundreds of milliseconds of network latency.
 
 This tutorial takes you through a series of progressively more sophisticated designs for a distributed grid controller, using the [Lingua Franca (LF)](https://lf-lang.org/) coordination language. Each design exposes a new problem and motivates the next solution, ending with a hybrid design that separates fast, low-risk commands from slower, strongly consistent decisions.
 

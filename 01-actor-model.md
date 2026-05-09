@@ -10,7 +10,7 @@ Operators at either location can issue dispatch commands:
 
 Every dispatch command from either node must be seen by both nodes, so both copies of the grid balance stay in sync.
 
-> **Why two copies?** Redundancy. If one control center loses network connectivity, it can still read the last-known balance and issue local dispatch decisions. This is the fundamental driver of distributed state.
+> **Why two copies?** Redundancy and availability. If one control center loses network connectivity, it can still read the last-known balance and issue local dispatch decisions. This is the fundamental driver of distributed state.
 
 ---
 
@@ -23,7 +23,7 @@ Here is what our system looks like:
 ![Step 1 actor model diagram](fig/Step1_Actor.svg)
 
 
-The squiggly arrows (`~>`) are **physical connections** in Lingua Franca: they use TCP for reliable in-order delivery on each link, but carry **no timestamp coordination** between links. Messages from California and New York may arrive at either grid manager in any order.
+The squiggly arrows (`~>`) are [**physical connections** in Lingua Franca](https://www.lf-lang.org/docs/writing-reactors/composing-reactors/#physical-connections). They still use TCP for reliable, in-order delivery on each individual link, but the receiver assigns the incoming message a logical timestamp based on its own physical clock (device's clock) rather than preserving the sender's logical timestamp. As a result, LF does not coordinate a single logical ordering across the California and New York links: messages from the two operators may arrive at either grid manager in either order.
 
 ---
 

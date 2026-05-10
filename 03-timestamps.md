@@ -112,9 +112,12 @@ Fed 3 (gm2_main): ERROR: STP violation occurred in a trigger to reaction 1, and 
 **** Invoking reaction at the wrong tag!
 ```
 
+A **safe-to-process (STP) violation** above means a message arrived after the receiving federate had already advanced past that message's logical tag.
+In other words, the message is **tardy**, so LF needs a [**tardy handler**](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#tardy-message-handling) to decide how to handle it.
+
 To intentionally trigger this error in [`src/Step3_Timestamps.lf`](src/Step3_Timestamps.lf):
 
-1. Temporarily remove the `tardy {= ... =}` block attached to the `GridManager` reaction.
+1. Temporarily remove the `tardy {= ... =}` block (tardy handler) attached to the `GridManager` reaction.
 2. Make both `GridManager` `@maxwait` values very small, for example `@maxwait(1 us)` or `@maxwait(0 ms)`.
 3. Compile and run:
 
@@ -125,7 +128,7 @@ To intentionally trigger this error in [`src/Step3_Timestamps.lf`](src/Step3_Tim
 
 With a very small `maxwait`, a grid manager may advance logical time before an earlier remote message arrives. Without a tardy handler, the runtime reports the STP violation. After observing the error, restore the `tardy` block and return `maxwait` to `100 ms`.
 
-Tardy events may be handled with a **tardy handler**.
+Tardy events may be handled with this **tardy handler**.
 For example, we can add the following to the `GridManager` reaction:
 
 ```lf
@@ -144,7 +147,7 @@ For example, we can add the following to the `GridManager` reaction:
 ```
 
 This handler will be invoked _instead of_ the normal reaction when a tardy message arrives.
-This example shows how to extract the **intended tag**, which is a timestamp, microstep pair.
+This example shows how to extract the [**intended tag**](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#tardy-message-handling), which is a **(timestamp, microstep)** pair.
 For this grid application, merely printing a warning like this is probably not the right thing to do.
 What could you do better?
 

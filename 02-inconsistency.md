@@ -106,7 +106,7 @@ We'll explore three approaches to fix the inconsistency issue:
 | Approach | How | Cost |
 |----------|-----|------|
 | **Single node** | Keep balance at one node only | Single point of failure; unavailability on network loss |
-| **Timestamps** | Tag commands with logical time; enforce ordered processing | Wait time proportional to network latency (CAL theorem) |
+| **Timestamps** | Order commands by LF tags, where each tag is `(logical time, microstep)` | Wait time proportional to network latency (CAL theorem) |
 | **Chandy-Misra** | Conservative coordination with null messages | Same wait time; tight coupling; blocks on node failure |
 
 The single-node approach defeats the purpose of having two control centers. So we turn to timestamps.

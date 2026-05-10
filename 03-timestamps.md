@@ -8,9 +8,9 @@ Fortunately, we don't need ground truth. We need **both control nodes to agree o
 
 ---
 
-## What Is Logical Time?
+## What Is [Logical Time](https://www.lf-lang.org/docs/writing-reactors/superdense-time/)?
 
-Lingua Franca assigns a **timestamp** to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. Clock synchronization protocols like NTP, PTP, or GPS keep these clocks close to each other, within a bounded error `ε`.
+Lingua Franca assigns a [**timestamp**](https://www.lf-lang.org/docs/writing-reactors/superdense-time/#tag-vs-time) to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. Clock synchronization protocols like NTP, PTP, or GPS keep these clocks close to each other, within a bounded error `ε`.
 
 A timestamp becomes a **logical time** because:
 - When Node A sends a message with timestamp `t`, Node B processes it at logical time `t`, even if Node B's physical clock has already advanced past `t`.
@@ -112,7 +112,7 @@ Fed 3 (gm2_main): ERROR: STP violation occurred in a trigger to reaction 1, and 
 **** Invoking reaction at the wrong tag!
 ```
 
-A **safe-to-process (STP) violation** above means a message arrived after the receiving federate had already advanced past that message's logical tag.
+A **safe-to-process (STP) violation** above means a message arrived after the receiving federate had already advanced past that message's tag.
 In other words, the message is **tardy**, so LF needs a [**tardy handler**](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#tardy-message-handling) to decide how to handle it.
 
 To intentionally trigger this error in [`src/Step3_Timestamps.lf`](src/Step3_Timestamps.lf):

@@ -52,6 +52,9 @@ The fix: California's node sends **null messages** periodically. A null message 
 In the grid context, a null message with value `0` can be used as "no change in dispatch." It is a heartbeat that lets the remote manager advance logical time even during quiet periods.
 We create a `GridServer` that wraps the `OperatorConsole` and sends null messages periodically when the console has nothing to say:
 
+Here, we use LF's [**reactor hierarchy**](https://www.lf-lang.org/docs/writing-reactors/composing-reactors/#hierarchy): `GridServer` contains an instance of `OperatorConsole` with `console = new OperatorConsole()`.
+The contained `OperatorConsole` is responsible only for generating real operator commands, while the enclosing `GridServer` combines those commands with a heartbeat timer to forward either a real command or a null message.
+
 ```lf
 reactor GridServer(null_message_period: time = 1 s) {
   input balance_in: int  // balance feedback from local GridManager

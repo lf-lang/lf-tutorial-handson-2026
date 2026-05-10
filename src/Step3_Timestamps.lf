@@ -5,9 +5,9 @@
  * on these messages, and with a large enough maxwait, both grid managers handle commands in the
  * same logical time order.
  *
- * The GridManager instances below use @maxwait. This is the amount of physical time a manager waits
- * after timestamp t before assuming no earlier remote message will arrive. For this example, it
- * must be at least:
+ * The GridManager instances below use @maxwait. Physical time is the time measured by the local
+ * platform clock; @maxwait is the amount of physical time a manager waits after timestamp t before
+ * assuming no earlier remote message will arrive. For this example, it must be at least:
  *
  * maxwait >= clock_sync_error + network_latency + processing_overhead
  *

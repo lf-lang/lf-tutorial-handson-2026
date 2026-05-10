@@ -10,7 +10,7 @@ Fortunately, we don't need ground truth. We need **both control nodes to agree o
 
 ## What Is [Logical Time](https://www.lf-lang.org/docs/writing-reactors/superdense-time/)?
 
-Lingua Franca assigns a [**timestamp**](https://www.lf-lang.org/docs/writing-reactors/superdense-time/#tag-vs-time) to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. Clock synchronization protocols like NTP, PTP, or GPS keep these clocks close to each other, within a bounded error `ε`.
+Lingua Franca assigns a [**timestamp**](https://www.lf-lang.org/docs/writing-reactors/superdense-time/#tag-vs-time) to every message at the point it is created. In a federated (distributed) program, each node uses its **local physical clock** to assign timestamps. [**Physical time**](https://www.lf-lang.org/docs/next/writing-reactors/time-and-timers/#logical-time) is the time measured by the execution platform; LF tries to keep logical time close to physical time, but they are distinct. Clock synchronization protocols like NTP, PTP, or GPS keep these clocks close to each other, within a bounded error `ε`.
 
 A timestamp becomes a **logical time** because:
 - When Node A sends a message with timestamp `t`, Node B processes it at logical time `t`, even if Node B's physical clock has already advanced past `t`.
@@ -148,6 +148,7 @@ For example, we can add the following to the `GridManager` reaction:
 
 This handler will be invoked _instead of_ the normal reaction when a tardy message arrives.
 This example shows how to extract the [**intended tag**](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#tardy-message-handling), which is a **(timestamp, microstep)** pair.
+It also prints physical elapsed time with [`lf_time_physical_elapsed()`](https://www.lf-lang.org/docs/next/writing-reactors/time-and-timers/#comparing-logical-and-physical-times), so you can compare when the tardy message arrived in physical time with the logical time at which it should have been processed.
 For this grid application, merely printing a warning like this is probably not the right thing to do.
 What could you do better?
 

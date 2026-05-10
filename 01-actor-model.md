@@ -139,7 +139,7 @@ More formally, this design satisfies **ACID 2.0** properties (Helland & Campbell
 - **I**dempotent: TCP guarantees exactly-once delivery, so each command is applied exactly once
 - **D**istributed: state is maintained at multiple nodes
 
-A datatype with these properties is called a **Conflict-Free Replicated Datatype (CRDT)**. This example is one of the simplest CRDTs in existence.
+A datatype with these properties is called a [**Conflict-Free Replicated Datatype (CRDT)**](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type). This example is one of the simplest CRDTs in existence.
 
 ---
 

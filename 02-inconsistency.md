@@ -2,7 +2,7 @@
 
 ## Adding Real Business Logic
 
-The simple summation from Step 1 is a CRDT, which is mathematically elegant. But it lets operators destroy the grid: curtailment commands are always honored, even if the balance is already dangerously low.
+The simple summation from Step 1 is a [Conflict-Free Replicated Datatype (CRDT)](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type), which is mathematically elegant. But it lets operators destroy the grid: curtailment commands are always honored, even if the balance is already dangerously low.
 
 Real grid operators enforce **safety constraints**. A typical rule:
 
@@ -11,6 +11,8 @@ Real grid operators enforce **safety constraints**. A typical rule:
 > If a curtailment would push the balance below the threshold, reject it and log an **imbalance event** (which triggers automated protective relays in a real system).
 
 Let's say our minimum safe threshold is **−200 MW**. Here is the updated reactor (See [`src/Step2_Inconsistency.lf`](src/Step2_Inconsistency.lf)).
+
+> **Note:** `MIN_SAFE_BALANCE`below is defined in a file-level [`preamble`](https://www.lf-lang.org/docs/writing-reactors/preambles/#preamble). LF preambles are used for target-language declarations such as includes, constants, or shared procedure declarations used by reaction code.
 
 
 ```lf

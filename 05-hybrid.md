@@ -98,7 +98,7 @@ See [`src/Step5_Hybrid.lf`](src/Step5_Hybrid.lf).
 
 ## Exercises
 
-1. Add `after 50 ms` to the `true_balance -> QuickDispatch.true_balance` connection. Does the tardy handler fire more often? How does the `after` delay shift the point where the fast-path estimate gets corrected?
+1. Add `after 10 ms` to the `GridManager.out -> QuickDispatch.true_balance` connection. Does the tardy handler fire more often? How does the `after` delay shift the point where the fast-path estimate gets corrected?
 
 2. Add a `state fault_count: int = 0` to `QuickDispatch` and increment it in the `tardy` handler. Print the running count after each tardy event. Run with `@maxwait(10 ms)` against a 75 ms simulated delay. How quickly does the fault count grow?
 

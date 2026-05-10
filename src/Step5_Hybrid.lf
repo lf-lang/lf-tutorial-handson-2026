@@ -128,10 +128,10 @@ federated reactor {
   @maxwait(forever)
   gm2 = new GridManager()
 
-  @maxwait(30 ms)
+  @maxwait(5 ms)
   qd1 = new QuickDispatch()
   // California fast-path handler
-  @maxwait(30 ms)
+  @maxwait(5 ms)
   qd2 = new QuickDispatch()
 
   // New York fast-path handler

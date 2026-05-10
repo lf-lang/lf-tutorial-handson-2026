@@ -85,7 +85,6 @@ This gives you **bounded unavailability with manageable risk**, the practical go
 This tutorial focused on the core consistency mechanisms. The paper also discusses:
 
 - **Communication cycles**: feedback paths can make conservative CAL analysis too pessimistic, so the paper derives tighter processing offsets from the LF program structure.
-- **After delays** (`a.out -> b.in after 10 ms`): a way to relax consistency by a controlled logical time offset, improving availability while preserving deterministic behavior.
 - **Deadlines and fault handlers**: LF mechanisms for detecting and handling cases where latency assumptions no longer hold.
 
 ---

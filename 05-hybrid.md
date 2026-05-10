@@ -94,6 +94,8 @@ Many real-world variations are possible. For example, small curtailments (< 20 M
 
 See [`src/Step5_Hybrid.lf`](src/Step5_Hybrid.lf).
 
+This step introduces LF's [**import statement**](https://www.lf-lang.org/docs/writing-reactors/composing-reactors/#import-statement): `import GridServer from "Step4_Conservative.lf"` reuses the `GridServer` reactor from the previous step instead of redefining it in this file.
+
 ---
 
 ## Exercises

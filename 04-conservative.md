@@ -22,7 +22,7 @@ Instead of guessing that all messages will arrive within some time budget, the *
 > A node must not process a message at tag `g` until it has proof that no message with tag `g` or less will later arrive.
 
 In LF, messages on a connection from one federate to another are delivered reliably in order.
-Moreover, all messages on such a connection have strictly increasing tags, where a **tag** is a timestamp, microstep pair, `g = (t, m)`.
+Moreover, all messages on such a connection have strictly increasing tags, where a **tag** is a **(timestamp, microstep)** pair, `g = (t, m)`.
 Hence, when a message has arrived on an input port with some tag `g`, the receiving federate knows it has already received all messages with earlier tags on this input port.
 
 The [Chandy-Misra approach (1979)](https://doi.org/10.1109/TSE.1979.230182), originally developed for distributed simulation, waits to advance to a tag `g` until a message has been received on **every** input port with tag at least `g`.

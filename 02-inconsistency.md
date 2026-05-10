@@ -12,7 +12,7 @@ Real grid operators enforce **safety constraints**. A typical rule:
 
 Let's say our minimum safe threshold is **−200 MW**. Here is the updated reactor (See [`src/Step2_Inconsistency.lf`](src/Step2_Inconsistency.lf)).
 
-> **Note:** `MIN_SAFE_BALANCE`below is defined in a file-level [`preamble`](https://www.lf-lang.org/docs/writing-reactors/preambles/#preamble). LF preambles are used for target-language declarations such as includes, constants, or shared procedure declarations used by reaction code.
+> **Note:** `MIN_SAFE_BALANCE` below is defined in a file-level [`preamble`](https://www.lf-lang.org/docs/writing-reactors/preambles/#preamble). LF preambles are used for target-language declarations such as includes, constants, or shared procedure declarations used by reaction code.
 
 
 ```lf

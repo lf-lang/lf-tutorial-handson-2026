@@ -104,7 +104,9 @@ This step introduces LF's [**import statement**](https://www.lf-lang.org/docs/wr
 
 1. Add `after 10 ms` to the `GridManager.out -> QuickDispatch.true_balance` connection. Does the tardy handler fire more often? How does the `after` delay shift the point where the fast-path estimate gets corrected?
 
-2. Add a `state fault_count: int = 0` to `QuickDispatch` and increment it in the `tardy` handler. Print the running count after each tardy event. Run with `@maxwait(10 ms)` against a 75 ms simulated delay. How quickly does the fault count grow?
+2. Add a `state fault_count: int = 0` to `QuickDispatch` and increment it in the `tardy` handler. Print the running count after each tardy event. Set the `QuickDispatch` instances to `@maxwait(10 ms)` and simulate a 75 ms delay in physical time by using `lf_sleep(MSEC(75));` in the `GridManager` reaction before it sets `out`. How quickly does the fault count grow?
+
+   Hint: `lf_sleep` is part of the LF C target's platform API; include `platform.h` in a preamble before using it. The LF docs list `lf_sleep` among [available libraries requiring `#include`](https://www.lf-lang.org/docs/next/reference/target-language-details/#available-libraries-requiring-include), define it as pausing execution for a duration in the [C platform API](https://www.lf-lang.org/reactor-c/group__Platform.html#ga9a43894d4caf7e2fc1e75b9b49d7285d), and show a similar use in the [physical actions example](https://www.lf-lang.org/docs/next/writing-reactors/actions/#physical-actions).
 
 3. Add a `QuickCurtail` reactor (mirroring `QuickDispatch`) that fast-paths small curtailments up to −20 MW with `@maxwait(30 ms)`. What should its `tardy` handler do when `true_balance` arrives late and reveals the curtailment pushed the balance below the threshold?
 

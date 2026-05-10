@@ -87,7 +87,16 @@ After creation, clone **your** new repository locally and follow [Running the Co
 
 ## Running the Code
 
-All `.lf` files in this repository are federated LF programs. Compile an example with `lfc`:
+All `.lf` files in this repository are [federated (distributed) LF programs](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/), called **federations** in the LF documentation.
+In an LF federation, each top-level reactor is a **federate**;
+the LF compiler generates a separate program for each federate and synthesizes the communication between them, with the runtime infrastructure (RTI) coordinating federates.
+
+These examples use [**decentralized coordination**](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#decentralized-coordination), where the RTI handles startup, shutdown, and clock synchronization but is otherwise not involved in execution.
+Federates communicate directly through dedicated sockets and advance logical time using [`maxwait`](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/#maxwait) instead of consulting the RTI.
+
+See the LF [distributed execution instructions](https://www.lf-lang.org/docs/writing-reactors/distributed-execution/) for more details.
+
+Now, compile an example with `lfc`:
 
 ```bash
 lfc src/<filename>.lf
@@ -99,13 +108,14 @@ For example:
 lfc src/Step1_Actor.lf
 ```
 
-Compilation generates a launcher under `bin/` with the same base name as the source file, without the `.lf` extension. For `src/Step1_Actor.lf`, the launcher is:
+Compilation generates a launcher script under `bin/` with the same base name as the source file, without the `.lf` extension.
+The script starts the runtime infrastructure (RTI) and all federates for that federation.
+
+For `src/Step1_Actor.lf`, to run the generated launcher:
 
 ```bash
 ./bin/Step1_Actor
 ```
-
-That launcher starts the runtime infrastructure (RTI) and all federates for the example. There is no `_launch.sh` script in this repository.
 
 To run a different step, replace the filename and launcher name:
 
@@ -114,13 +124,14 @@ lfc src/Step5_Hybrid.lf
 ./bin/Step5_Hybrid
 ```
 
-The launcher also supports tmux panes, which can make federated output easier to read:
+The launcher also supports tmux panes, which can make multiple outputs from each federate and the RTI easier to read:
 
 ```bash
 ./bin/Step1_Actor --tmux
 ```
 
-Step 1 exits on its own because it has a short timeout. Other steps may keep running until you stop them with `Ctrl+C` in the launcher or RTI pane.
+Step 1 exits on its own because it has a short timeout.
+Other steps may keep running until you stop them with `Ctrl+C` in the launcher or RTI pane.
 
 ## References
 

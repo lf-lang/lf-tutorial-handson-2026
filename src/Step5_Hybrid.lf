@@ -80,9 +80,6 @@ reactor QuickDispatch {
 
   // Normal path: true_balance arrives before or with dispatch.
   reaction(true_balance, dispatch) -> ack {=
-    if (true_balance->is_present) {
-        self->balance = true_balance->value;
-    }
     if (dispatch->is_present && dispatch->value > 0) {
         // Only handle dispatch-up on the fast path.
         self->balance += dispatch->value;
@@ -90,18 +87,15 @@ reactor QuickDispatch {
         lf_print("[ts=%lld] QuickDispatch: fast ack +%d MW -> est. balance %d MW",
                  lf_time_logical_elapsed(), dispatch->value, self->balance);
     }
+    if (true_balance->is_present) {
+        self->balance = true_balance->value;
+    }
     // Negative commands (curtailments) are ignored here. They are handled by
     // GridManager on the slow, strongly consistent path.
   =} tardy {=
     // Fault path: true_balance arrived late, after this federate already
     // advanced past its intended timestamp. Correct the estimate and log the
     // anomaly so a real system could alert or audit the fast-path decision.
-    if (true_balance->is_present) {
-        lf_print("[ts=%lld] QuickDispatch: late true_balance arrived (%d MW), "
-                 "correcting estimate from %d MW.",
-                 lf_time_logical_elapsed(), true_balance->value, self->balance);
-        self->balance = true_balance->value;
-    }
     if (dispatch->is_present && dispatch->value > 0) {
         // A fast dispatch may have used a stale estimate. For dispatch-up this
         // is generally safe, but it should still be visible in an audit trail.
@@ -109,6 +103,12 @@ reactor QuickDispatch {
                  "processed with stale balance estimate. "
                  "Operator acknowledged %d MW (may differ from true balance).",
                  lf_time_logical_elapsed(), dispatch->value, self->balance);
+    }
+    if (true_balance->is_present) {
+        lf_print("[ts=%lld] QuickDispatch: late true_balance arrived (%d MW), "
+                 "correcting estimate from %d MW.",
+                 lf_time_logical_elapsed(), true_balance->value, self->balance);
+        self->balance = true_balance->value;
     }
   =}
 }
